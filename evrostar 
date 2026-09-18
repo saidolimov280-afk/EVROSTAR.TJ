@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EVROSTAR — солнечные панели и энерготехника</title>
+  <meta name="description" content="EVROSTAR: продажа солнечных панелей, инверторов, аккумуляторов и комплектов солнечной энергетики. Подбор, доставка, монтаж.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 72 72'%3E%3Cpath fill='%23FF7A18' d='M36 3l4.7 13.2L54 8.5l-4.1 13.5L63 18l-9.6 10.4L69 36l-15.6 7.6L63 54l-13.1-4 4.1 13.5-13.3-7.7L36 69l-4.7-13.2L18 63.5l4.1-13.5L9 54l9.6-10.4L3 36l15.6-7.6L9 18l13.1 4-4.1-13.5 13.3 7.7z'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      --bg: #07111f;
+      --bg2: #0b1728;
+      --card: rgba(255,255,255,.075);
+      --card2: rgba(255,255,255,.11);
+      --text: #eef6ff;
+      --muted: #9fb0c7;
+      --line: rgba(255,255,255,.13);
+      --brand: #ffb020;
+      --brand2: #ff7a18;
+      --blue: #22d3ee;
+      --green: #34d399;
+      --shadow: 0 24px 70px rgba(0,0,0,.35);
+      --radius: 22px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 15% 5%, rgba(34,211,238,.18), transparent 30%),
+        radial-gradient(circle at 85% 10%, rgba(255,122,24,.18), transparent 28%),
+        linear-gradient(180deg, var(--bg), #050a13 70%, #03060c);
+      min-height: 100vh;
+    }
+    a { color: inherit; text-decoration: none; }
+    img, svg { display: block; max-width: 100%; }
+    button, input, select, textarea { font: inherit; }
+    .container { width: min(1180px, calc(100% - 40px)); margin: 0 auto; }
+    .header {
+      position: sticky; top: 0; z-index: 50;
+      backdrop-filter: blur(18px);
+      background: rgba(7,17,31,.76);
+      border-bottom: 1px solid var(--line);
+    }
+    .nav { display: flex; align-items: center; justify-content: space-between; gap: 24px; min-height: 82px; }
+    .logo { width: 218px; }
+    .menu { display: flex; gap: 22px; align-items: center; color: var(--muted); font-size: 14px; }
+    .menu a { transition: color .2s ease; }
+    .menu a:hover { color: white; }
+    .nav-actions { display: flex; gap: 12px; align-items: center; }
+    .btn {
+      border: 0; border-radius: 999px; cursor: pointer; font-weight: 800;
+      display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+      padding: 13px 20px; color: #09111f; background: linear-gradient(135deg, var(--brand), var(--brand2));
+      box-shadow: 0 12px 30px rgba(255,122,24,.25);
+      transition: transform .2s ease, box-shadow .2s ease;
+    }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 18px 45px rgba(255,122,24,.34); }
+    .btn.secondary { color: var(--text); background: rgba(255,255,255,.08); border: 1px solid var(--line); box-shadow: none; }
+    .cart {
+      position: relative; min-width: 48px; height: 48px; border-radius: 16px; border: 1px solid var(--line);
+      background: rgba(255,255,255,.08); color: white; cursor: pointer;
+    }
+    .cart b {
+      position: absolute; right: -6px; top: -6px; background: var(--blue); color: #04101a;
+      min-width: 22px; height: 22px; border-radius: 999px; display: grid; place-items: center; font-size: 12px;
+    }
+    .hero { padding: 74px 0 58px; position: relative; overflow: hidden; }
+    .hero::before {
+      content: ""; position: absolute; inset: 40px -120px auto auto; width: 520px; height: 520px;
+      background: radial-gradient(circle, rgba(255,176,32,.2), transparent 64%); transform: rotate(12deg);
+    }
+    .hero-grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: 46px; align-items: center; position: relative; }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 10px; padding: 9px 14px; border: 1px solid rgba(52,211,153,.35);
+      color: #b8ffe3; background: rgba(52,211,153,.1); border-radius: 999px; font-weight: 700; font-size: 13px;
+    }
+    h1 { font-size: clamp(42px, 6vw, 76px); line-height: .95; letter-spacing: -2.8px; margin: 22px 0 18px; }
+    h1 span { color: transparent; background: linear-gradient(135deg, #fff, #ffd166 45%, #22d3ee); -webkit-background-clip: text; background-clip: text; }
+    .lead { color: var(--muted); font-size: 18px; line-height: 1.7; max-width: 680px; margin: 0 0 30px; }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 14px; }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 38px; }
+    .stat { border: 1px solid var(--line); background: rgba(255,255,255,.055); border-radius: 20px; padding: 18px; }
+    .stat strong { display: block; font-size: 25px; margin-bottom: 5px; }
+    .stat span { color: var(--muted); font-size: 13px; }
+    .hero-card {
+      border: 1px solid var(--line); background: linear-gradient(180deg, rgba(255,255,255,.13), rgba(255,255,255,.06));
+      border-radius: 34px; padding: 28px; box-shadow: var(--shadow); position: relative; overflow: hidden;
+    }
+    .hero-card::before { content: ""; position: absolute; width: 220px; height: 220px; border-radius: 50%; background: rgba(34,211,238,.16); filter: blur(4px); right: -70px; top: -70px; }
+    .panel-visual {
+      height: 300px; border-radius: 26px; border: 1px solid rgba(255,255,255,.16);
+      background:
+        linear-gradient(135deg, rgba(34,211,238,.25), rgba(37,99,235,.18)),
+        repeating-linear-gradient(90deg, rgba(255,255,255,.13) 0 1px, transparent 1px 42px),
+        repeating-linear-gradient(0deg, rgba(255,255,255,.13) 0 1px, transparent 1px 42px),
+        #071426;
+      position: relative; overflow: hidden;
+    }
+    .sun { position: absolute; width: 110px; height: 110px; border-radius: 50%; right: 34px; top: 28px; background: radial-gradient(circle at 35% 35%, #fff8c9, #ffd166 45%, #ff7a18 72%); box-shadow: 0 0 70px rgba(255,176,32,.65); }
+    .shine { position: absolute; inset: 0; background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,.28) 45%, transparent 58%); animation: shine 4.8s ease-in-out infinite; }
+    @keyframes shine { 0%,100% { transform: translateX(-60%); } 50% { transform: translateX(60%); } }
+    .float-chip { position: absolute; display: flex; gap: 10px; align-items: center; padding: 13px 15px; background: rgba(4,12,22,.72); border: 1px solid var(--line); border-radius: 18px; backdrop-filter: blur(12px); box-shadow: 0 14px 30px rgba(0,0,0,.3); }
+    .chip1 { left: 22px; bottom: 24px; }
+    .chip2 { right: 22px; bottom: 88px; }
+    .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--green); box-shadow: 0 0 18px var(--green); }
+    section { padding: 78px 0; }
+    .section-head { display: flex; justify-content: space-between; align-items: end; gap: 22px; margin-bottom: 28px; }
+    h2 { font-size: clamp(30px, 4vw, 48px); letter-spacing: -1.2px; margin: 0; }
+    .sub { color: var(--muted); line-height: 1.7; max-width: 640px; margin: 10px 0 0; }
+    .filters { display: flex; flex-wrap: wrap; gap: 10px; }
+    .filter { border: 1px solid var(--line); background: rgba(255,255,255,.07); color: var(--muted); border-radius: 999px; padding: 10px 15px; cursor: pointer; }
+    .filter.active { color: #09111f; background: linear-gradient(135deg, var(--brand), var(--brand2)); border-color: transparent; font-weight: 800; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .card { border: 1px solid var(--line); background: var(--card); border-radius: var(--radius); padding: 22px; transition: transform .22s ease, background .22s ease, border-color .22s ease; position: relative; overflow: hidden; }
+    .card:hover { transform: translateY(-6px); background: var(--card2); border-color: rgba(34,211,238,.35); }
+    .badge { position: absolute; right: 16px; top: 16px; color: #07111f; background: #a7f3d0; font-size: 12px; font-weight: 900; border-radius: 999px; padding: 6px 10px; }
+    .product-icon { height: 150px; border-radius: 18px; display: grid; place-items: center; margin-bottom: 18px; background: linear-gradient(135deg, rgba(34,211,238,.18), rgba(255,122,24,.12)); border: 1px solid rgba(255,255,255,.12); }
+    .product-icon svg { width: 82px; height: 82px; }
+    .card h3 { margin: 0 0 8px; font-size: 20px; }
+    .card p { margin: 0 0 16px; color: var(--muted); line-height: 1.6; min-height: 52px; }
+    .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+    .meta span { border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px; color: #cfe7ff; font-size: 12px; background: rgba(255,255,255,.05); }
+    .price-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .price { font-size: 22px; font-weight: 900; }
+    .old { color: var(--muted); text-decoration: line-through; font-size: 13px; display: block; font-weight: 600; }
+    .add { border: 0; border-radius: 14px; padding: 11px 14px; color: #04101a; background: var(--blue); font-weight: 900; cursor: pointer; }
+    .advantages { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+    .adv { padding: 24px; border-radius: var(--radius); border: 1px solid var(--line); background: rgba(255,255,255,.055); }
+    .adv svg { width: 34px; height: 34px; margin-bottom: 16px; }
+    .adv h3 { margin: 0 0 8px; }
+    .adv p { margin: 0; color: var(--muted); line-height: 1.6; font-size: 14px; }
+    .calc-wrap { display: grid; grid-template-columns: .95fr 1.05fr; gap: 20px; align-items: stretch; }
+    .calc, .result { border: 1px solid var(--line); background: rgba(255,255,255,.065); border-radius: 30px; padding: 28px; }
+    label { display: block; color: #dbeafe; font-weight: 800; margin: 18px 0 9px; }
+    input, select, textarea { width: 100%; color: var(--text); background: rgba(2,8,23,.72); border: 1px solid var(--line); border-radius: 15px; padding: 14px 15px; outline: none; }
+    input:focus, select:focus, textarea:focus { border-color: rgba(34,211,238,.65); box-shadow: 0 0 0 4px rgba(34,211,238,.12); }
+    .range-row { display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: center; }
+    input[type="range"] { padding: 0; accent-color: var(--brand); }
+    .result { display: flex; flex-direction: column; justify-content: center; background: linear-gradient(135deg, rgba(255,176,32,.16), rgba(34,211,238,.11)), rgba(255,255,255,.06); }
+    .big { font-size: clamp(36px, 5vw, 58px); font-weight: 950; letter-spacing: -1.5px; margin: 8px 0; }
+    .result p { color: var(--muted); line-height: 1.7; }
+    .result-list { display: grid; gap: 12px; margin: 20px 0; }
+    .result-item { display: flex; justify-content: space-between; gap: 14px; border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; background: rgba(0,0,0,.18); }
+    .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; counter-reset: step; }
+    .step { counter-increment: step; border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; background: rgba(255,255,255,.05); }
+    .step::before { content: "0" counter(step); display: inline-flex; color: #07111f; background: linear-gradient(135deg, var(--brand), var(--brand2)); font-weight: 950; border-radius: 14px; padding: 8px 12px; margin-bottom: 18px; }
+    .step h3 { margin: 0 0 8px; }
+    .step p { margin: 0; color: var(--muted); line-height: 1.6; }
+    .contact { display: grid; grid-template-columns: .9fr 1.1fr; gap: 20px; }
+    .contact-info, .form { border: 1px solid var(--line); border-radius: 30px; background: rgba(255,255,255,.06); padding: 28px; }
+    .contact-line { display: flex; gap: 14px; align-items: flex-start; margin: 18px 0; color: var(--muted); line-height: 1.6; }
+    .contact-line b { color: white; display: block; }
+    .icon { width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; background: rgba(34,211,238,.13); border: 1px solid rgba(34,211,238,.25); flex: 0 0 auto; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .form-grid .full { grid-column: 1 / -1; }
+    .toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 120px); background: #ecfeff; color: #06202b; padding: 14px 18px; border-radius: 16px; box-shadow: var(--shadow); transition: transform .25s ease; z-index: 80; font-weight: 800; }
+    .toast.show { transform: translate(-50%, 0); }
+    footer { border-top: 1px solid var(--line); padding: 34px 0 46px; color: var(--muted); }
+    .footer-grid { display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap; }
+    .float-social { position: fixed; right: 18px; bottom: 18px; display: grid; gap: 10px; z-index: 60; }
+    .float-social a { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 18px; background: rgba(255,255,255,.1); border: 1px solid var(--line); backdrop-filter: blur(14px); }
+    .mobile-menu { display: none; }
+    @media (max-width: 980px) {
+      .hero-grid, .calc-wrap, .contact { grid-template-columns: 1fr; }
+      .grid { grid-template-columns: repeat(2, 1fr); }
+      .advantages, .steps { grid-template-columns: repeat(2, 1fr); }
+      .menu { display: none; }
+      .mobile-menu { display: inline-flex; }
+    }
+    @media (max-width: 640px) {
+      .container { width: min(100% - 28px, 1180px); }
+      .nav { min-height: 72px; }
+      .logo { width: 176px; }
+      .nav-actions .btn { display: none; }
+      .hero { padding-top: 46px; }
+      .stats, .grid, .advantages, .steps, .form-grid { grid-template-columns: 1fr; }
+      .section-head { align-items: start; flex-direction: column; }
+      .panel-visual { height: 250px; }
+      .chip2 { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="container nav">
+      <a href="#top" class="logo" aria-label="EVROSTAR"><svg width="260" height="72" viewBox="0 0 260 72" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="EVROSTAR logo">
+  <defs>
+    <linearGradient id="sun" x1="20" y1="6" x2="52" y2="64" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFD25F"/>
+      <stop offset="1" stop-color="#FF7A18"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="8" y1="14" x2="66" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#24D3EE"/>
+      <stop offset="1" stop-color="#2563EB"/>
+    </linearGradient>
+  </defs>
+  <path d="M36 3l4.7 13.2L54 8.5l-4.1 13.5L63 18l-9.6 10.4L69 36l-15.6 7.6L63 54l-13.1-4 4.1 13.5-13.3-7.7L36 69l-4.7-13.2L18 63.5l4.1-13.5L9 54l9.6-10.4L3 36l15.6-7.6L9 18l13.1 4-4.1-13.5 13.3 7.7L36 3z" fill="url(#sun)"/>
+  <rect x="19" y="19" width="34" height="34" rx="7" fill="#0B1220"/>
+  <path d="M24 25h24M24 32h24M24 39h24M31 25v20M41 25v20" stroke="url(#panel)" stroke-width="2" stroke-linecap="round"/>
+  <path d="M22 52l8-8 6 6 10-10 8 8" stroke="#A7F3D0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="82" y="32" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="800" letter-spacing="2" fill="#EAF2FF">EVROSTAR</text>
+  <text x="84" y="50" font-family="Inter, Arial, sans-serif" font-size="11" font-weight="600" letter-spacing="2.2" fill="#78D7FF">SOLAR TECHNOLOGY</text>
+</svg></a>
+      <nav class="menu" aria-label="Главная навигация">
+        <a href="#catalog">Каталог</a>
+        <a href="#advantages">Преимущества</a>
+        <a href="#calculator">Калькулятор</a>
+        <a href="#steps">Монтаж</a>
+        <a href="#contact">Контакты</a>
+      </nav>
+      <div class="nav-actions">
+        <button class="cart" id="cartBtn" aria-label="Корзина">🛒<b id="cartCount">0</b></button>
+        <a class="btn" href="#contact">Заявка</a>
+        <button class="btn secondary mobile-menu" id="burger">☰</button>
+      </div>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="container hero-grid">
+        <div>
+          <div class="eyebrow"><span class="dot"></span> EVROSTAR Solar Technology</div>
+          <h1>Солнечная энергия <span>для дома и бизнеса</span></h1>
+          <p class="lead">Продаём солнечные панели, инверторы, аккумуляторы и готовые комплекты. Поможем подобрать мощность, рассчитать окупаемость и организовать доставку с монтажом.</p>
+          <div class="hero-actions">
+            <a class="btn" href="#catalog">Смотреть каталог →</a>
+            <a class="btn secondary" href="#calculator">Рассчитать комплект</a>
+          </div>
+          <div class="stats" aria-label="Ключевые показатели">
+            <div class="stat"><strong>12 лет</strong><span>гарантии на панели</span></div>
+            <div class="stat"><strong>24/7</strong><span>поддержка клиентов</span></div>
+            <div class="stat"><strong>1–3 дня</strong><span>доставка по городу</span></div>
+          </div>
+        </div>
+        <div class="hero-card" aria-label="Солнечная панель EVROSTAR">
+          <div class="panel-visual">
+            <div class="sun"></div>
+            <div class="shine"></div>
+          </div>
+          <div class="float-chip chip1"><span class="dot"></span><div><b>Мощность</b><br><span>до 600 Вт</span></div></div>
+          <div class="float-chip chip2"><div><b>Эффективность</b><br><span>до 22.8%</span></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="catalog">
+      <div class="container">
+        <div class="section-head">
+          <div>
+            <h2>Каталог энерготехники</h2>
+            <p class="sub">Панели, инверторы, аккумуляторы и аксессуары для автономной или сетевой солнечной станции.</p>
+          </div>
+          <div class="filters" id="filters">
+            <button class="filter active" data-filter="all">Все</button>
+            <button class="filter" data-filter="panel">Панели</button>
+            <button class="filter" data-filter="inverter">Инверторы</button>
+            <button class="filter" data-filter="battery">Аккумуляторы</button>
+            <button class="filter" data-filter="kit">Комплекты</button>
+          </div>
+        </div>
+        <div class="grid" id="productGrid"></div>
+      </div>
+    </section>
+
+    <section id="advantages">
+      <div class="container">
+        <div class="section-head">
+          <div>
+            <h2>Почему EVROSTAR</h2>
+            <p class="sub">Работаем как магазин и инженерная команда: подбираем оборудование под задачу, а не просто продаём коробки.</p>
+          </div>
+        </div>
+        <div class="advantages">
+          <div class="adv">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 2l7 4v6c0 5-3.5 8.4-7 10-3.5-1.6-7-5-7-10V6l7-4z" stroke="#34d399" stroke-width="1.8"/><path d="M8.5 12.2l2.4 2.4 4.8-5" stroke="#34d399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <h3>Гарантия и сертификаты</h3><p>Помощь с гарантийным случаем, проверка совместимости компонентов.</p>
+          </div>
+          <div class="adv">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M4 17h16M6 17V9h12v8M9 9V6h6v3" stroke="#22d3ee" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 13h8" stroke="#22d3ee" stroke-width="1.8" stroke-linecap="round"/></svg>
+            <h3>Доставка и монтаж</h3><p>Доставляем по городу и регионам, подключаем под ключ с настройкой.</p>
+          </div>
+          <div class="adv">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" stroke="#ffb020" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="4" stroke="#ffb020" stroke-width="1.8"/></svg>
+            <h3>Подбор мощности</h3><p>Рассчитываем станцию по счётам за электричество, площади крыши и нагрузке.</p>
+          </div>
+          <div class="adv">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M7 17a5 5 0 01-1-9.9A6 6 0 
