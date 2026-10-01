@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EVROSTAR — Таджикистан</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial;background:#f5f7fb;color:#142033}
+header{background:#071a2b;color:white;padding:18px}
+.logo{font-size:27px;font-weight:900;color:#ff9f1c}
+.hero{background:linear-gradient(135deg,#071a2b,#164d70);
+color:white;padding:55px 20px}
+.wrap{max-width:1000px;margin:auto}
+h1{font-size:44px;margin:10px 0}
+.btn{display:inline-block;background:#ff9f1c;color:#111;
+padding:14px 18px;border-radius:12px;text-decoration:none;
+font-weight:bold;border:0;margin:5px}
+section{padding:35px 20px}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:15px}
+.card{background:white;padding:20px;border-radius:18px;
+box-shadow:0 5px 20px #0001}
+.icon{font-size:45px}
+.cart{background:#071a2b;color:white;padding:25px;border-radius:18px}
+@media(max-width:650px){.grid{grid-template-columns:1fr}h1{font-size:36px}}
+</style>
+</head>
+
+<body>
+
+<header>
+<div class="wrap">
+<div class="logo">☀ EVROSTAR</div>
+</div>
+</header>
+
+<div class="hero">
+<div class="wrap">
+<b>EVROSTAR • ТАДЖИКИСТАН</b>
+<h1>Энергия, безопасность и техника</h1>
+<p>Солнечные системы, камеры, 4G/5G роутеры,
+телевизоры и другая техника.</p>
+
+<a class="btn" href="#catalog">Каталог</a>
+<a class="btn" href="https://wa.me/992405555530">WhatsApp</a>
+</div>
+</div>
+
+<section id="catalog">
+<div class="wrap">
+
+<h2>Каталог EVROSTAR</h2>
+
+<div class="grid">
+
+<div class="card">
+<div class="icon">☀️</div>
+<h3>Солнечная панель EVROSTAR 630W</h3>
+<p>630W • 50V • 15A</p>
+<button class="btn" onclick="add('Панель EVROSTAR 630W')">
+В корзину
+</button>
+</div>
+
+<div class="card">
+<div class="icon">⚡</div>
+<h3>Гибридные инверторы</h3>
+<p>1 kW – 18 kW</p>
+<button class="btn" onclick="add('Гибридный инвертор')">
+В корзину
+</button>
+</div>
+
+<div class="card">
+<div class="icon">🔋</div>
+<h3>LiFePO4 аккумуляторы</h3>
+<p>12.8V – 51.2V</p>
+<button class="btn" onclick="add('LiFePO4 аккумулятор')">
+В корзину
+</button>
+</div>
+
+<div class="card">
+<div class="icon">📹</div>
+<h3>Камеры видеонаблюдения</h3>
+<p>4G Solar • PTZ • IP • NVR</p>
+<button class="btn" onclick="add('Камера')">
+В корзину
+</button>
+</div>
+
+<div class="card">
+<div class="icon">📡</div>
+<h3>4G / 5G роутеры</h3>
+<p>SIM • Wi-Fi</p>
+<button class="btn" onclick="add('4G/5G роутер')">
+В корзину
+</button>
+</div>
+
+<div class="card">
+<div class="icon">📺</div>
+<h3>TV и Android TV Box</h3>
+<p>Техника EVROSTAR</p>
+<button class="btn" onclick="add('TV Box')">
+В корзину
+</button>
+</div>
+
+</div>
+</div>
+</section>
+
+<section>
+<div class="wrap cart">
+
+<h2>🛒 Корзина</h2>
+
+<p id="basket">Корзина пуста</p>
+
+<a id="order" class="btn"
+href="https://wa.me/992405555530">
+Заказать через WhatsApp
+</a>
+
+</div>
+</section>
+
+<section>
+<div class="wrap">
+
+<h2>Контакты EVROSTAR</h2>
+
+<p>📍 г. Хисор, Большой базар Хисора</p>
+<p>📱 WhatsApp: +992 405 555 530</p>
+<p>📸 Instagram: @evrostar001</p>
+<p>🚚 Доставка по Таджикистану</p>
+
+</div>
+</section>
+
+<script>
+let cart=[];
+
+function add(product){
+cart.push(product);
+
+document.getElementById("basket").innerText=
+cart.join(" • ");
+
+let message=
+"Здравствуйте, EVROSTAR! Хочу заказать: "+
+cart.join(", ");
+
+document.getElementById("order").href=
+"https://wa.me/992405555530?text="+
+encodeURIComponent(message);
+}
+</script>
+
+</body>
+  </html>
