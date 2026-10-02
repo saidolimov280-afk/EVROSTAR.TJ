@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EVROSTAR | Таджикистан</title>
+<meta name="description" content="EVROSTAR — солнечные панели, гибридные инверторы, LiFePO4 аккумуляторы, камеры и электроника в Таджикистане.">
+<style>
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:Arial,sans-serif;background:#f5f6f8;color:#17202a}
+header{position:sticky;top:0;z-index:20;background:#071b2c;color:white;padding:14px 18px}
+.nav{max-width:1100px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.logo{font-size:25px;font-weight:900;color:#ff9f1a}
+nav a{color:white;text-decoration:none;margin:0 8px;font-size:14px}
+.hero{background:linear-gradient(135deg,#06364a,#07849a);color:white;padding:55px 18px}
+.hero-in{max-width:1100px;margin:auto}
+.hero h1{font-size:42px;margin:10px 0;max-width:650px}
+.hero p{max-width:700px;line-height:1.6}
+.btn{display:inline-block;background:#ff9f1a;color:#17202a;padding:13px 20px;border-radius:9px;text-decoration:none;font-weight:bold;margin:8px 5px 0 0;border:0;cursor:pointer}
+section{max-width:1100px;margin:auto;padding:40px 18px}
+.title{text-align:center;font-size:30px;margin-bottom:8px}
+.sub{text-align:center;color:#68717b;margin-bottom:25px}
+.categories,.products{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.cat,.card{background:white;border-radius:15px;padding:18px;box-shadow:0 4px 18px #00000010}
+.cat{text-align:center;font-weight:bold}
+.cat span{display:block;font-size:40px;margin-bottom:10px}
+.photo{height:210px;background:#eef3f5;border-radius:12px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.photo img{width:100%;height:100%;object-fit:contain;background:white}
+.photo .emoji{font-size:70px}
+.card h3{margin-bottom:7px}
+.card p{color:#69717b;line-height:1.5;font-size:14px}
+.price{font-weight:bold;color:#d98200;font-size:17px}
+.cart{margin-top:35px;background:#071b2c;color:white;border-radius:16px;padding:25px}
+.cart h2{margin-top:0}
+#cartItems{line-height:1.8}
+footer{background:#071b2c;color:white;text-align:center;padding:30px 15px;margin-top:35px}
+.whatsapp{position:fixed;right:18px;bottom:18px;background:#25D366;color:white;text-decoration:none;padding:14px 18px;border-radius:30px;font-weight:bold;box-shadow:0 5px 18px #0004}
+@media(max-width:750px){
+.categories{grid-template-columns:repeat(2,1fr)}
+.products{grid-template-columns:1fr}
+.hero h1{font-size:32px}
+nav a{font-size:12px;margin:0 3px}
+}
+</style>
+</head>
+
+<body>
+
+<header>
+<div class="nav">
+<div class="logo">☀ EVROSTAR</div>
+<nav>
+<a href="#catalog">Каталог</a>
+<a href="#cart">Корзина <span id="count">0</span></a>
+<a href="#contacts">Контакты</a>
+</nav>
+</div>
+</header>
+
+<div class="hero">
+<div class="hero-in">
+<b>EVROSTAR • ТАДЖИКИСТАН</b>
+<h1>Энергия будущего для вашего дома</h1>
+<p>Солнечные системы, гибридные инверторы, LiFePO4 аккумуляторы, камеры видеонаблюдения и современная электроника.</p>
+<a class="btn" href="#catalog">Смотреть каталог</a>
+<a class="btn" href="https://wa.me/992405555530">WhatsApp</a>
+</div>
+</div>
+
+<section>
+<h2 class="title">Категории</h2>
+<p class="sub">Всё необходимое в одном месте</p>
+
+<div class="categories">
+<div class="cat"><span>☀️</span>Солнечная энергия</div>
+<div class="cat"><span>🔋</span>Аккумуляторы</div>
+<div class="cat"><span>📹</span>Камеры</div>
+<div class="cat"><span>📡</span>Интернет</div>
+</div>
+</section>
+
+<section id="catalog">
+<h2 class="title">Популярные товары</h2>
+<p class="sub">Продукция EVROSTAR</p>
+
+<div class="products">
+
+<div class="card">
+<div class="photo">
+<img src="file_00000000a5748208aa08db16d4c0e4bd.png" alt="EVROSTAR 630W">
+</div>
+<h3>EVROSTAR 630W</h3>
+<p>Солнечная панель<br>630W • 50V • 15A</p>
+<div class="price">Цена по запросу</div>
+<button class="btn" onclick="add('Солнечная панель EVROSTAR 630W')">В корзину</button>
+</div>
+
+<div class="card">
+<div class="photo"><div class="emoji">⚡</div></div>
+<h3>Гибридный инвертор EVROSTAR</h3>
+<p>Модели от 1 кВт до 18 кВт<br>Solar • Battery • AC</p>
+<div class="price">Цена по запросу</div>
+<button class="btn" onclick="add('Гибридный инвертор EVROSTAR')">В корзину</button>
+</div>
+
+<div class="card">
+<div class="photo"><div class="emoji">🔋</div></div>
+<h3>LiFePO4 Battery</h3>
+<p>12.8V – 51.2V<br>Долгий срок службы</p>
+<div class="price">Цена по запросу</div>
+<button class="btn" onclick="add('LiFePO4 аккумулятор')">В корзину</button>
+</div>
+
+<div class="card">
+<div class="photo"><div class="emoji">📹</div></div>
+<h3>4G Solar Camera</h3>
+<p>SIM • Solar • PTZ<br>Запись 24/7</p>
+<div class="price">Цена по запросу</div>
+<button class="btn" onclick="add('4G Solar Camera')">В корзину</button>
+</div>
+
+<div class="card">
+<div class="photo"><div class="emoji">📡</div></div>
+<h3>4G / 5G Router</h3>
+<p>SIM-карта • Wi-Fi<br>Для дома и офиса</p>
+<div class="price">Цена по запросу</div>
+<button class="btn" onclick="add('4G / 5G Router')">В корзину</button>
+</div>
+
+<div class="card">
+<div class="photo"><div class="emoji">📺</div></div>
+<h3>Android TV Box</h3>
+<p>Smart TV • Wi-Fi • Android</p>
+<div class="price">Цена по запросу</div>
+<button class="btn" onclick="add('Android TV Box')">В корзину</button>
+</div>
+
+</div>
+
+<div class="cart" id="cart">
+<h2>🛒 Корзина</h2>
+<div id="cartItems">Корзина пуста</div>
+<button class="btn" onclick="order()">Заказать через WhatsApp</button>
+</div>
+</section>
+
+<section id="contacts">
+<h2 class="title">EVROSTAR Таджикистан</h2>
+<p class="sub">
+📍 г. Хисор, Большой базар Хисора<br><br>
+📱 WhatsApp: +992 405 555 530<br><br>
+Instagram: @evrostar001
+</p>
+</section>
+
+<footer>
+<h2>EVROSTAR</h2>
+<p>Солнечная энергия • Видеонаблюдение • Электроника</p>
+<p>Таджикистан 🇹🇯</p>
+</footer>
+
+<a class="whatsapp" href="https://wa.me/992405555530">WhatsApp</a>
+
+<script>
+let cart=[];
+
+function add(product){
+cart.push(product);
+document.getElementById("count").innerText=cart.length;
+showCart();
+}
+
+function showCart(){
+const box=document.getElementById("cartItems");
+if(cart.length===0){
+box.innerHTML="Корзина пуста";
+return;
+}
+box.innerHTML=cart.map((x,i)=>
+(i+1)+". "+x
+).join("<br>");
+}
+
+function order(){
+if(cart.length===0){
+alert("Добавьте товар в корзину");
+return;
+}
+
+let text="Здравствуйте! Хочу заказать:%0A%0A";
+
+cart.forEach((item,i)=>{
+text+=(i+1)+". "+encodeURIComponent(item)+"%0A";
+});
+
+window.open(
+"https://wa.me/992405555530?text="+text,
+"_blank"
+);
+}
+</script>
+
+</body>
+  </html>
