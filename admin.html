@@ -1,1 +1,65 @@
-
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#071b2c">
+<title>EVROSTAR — Admin</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f6f8;color:#10202d}
+header{background:#071b2c;color:white;padding:18px;text-align:center}
+main{max-width:720px;margin:auto;padding:18px}
+.card{background:white;border-radius:18px;padding:18px;box-shadow:0 5px 22px #0001}
+h1{font-size:22px;margin:0}h2{margin-top:0}
+label{display:block;font-weight:700;margin:14px 0 6px}
+input,textarea,select{width:100%;padding:13px;border:1px solid #ccd4db;border-radius:10px;font-size:16px}
+textarea{min-height:100px;resize:vertical}
+button{width:100%;border:0;border-radius:12px;padding:14px;margin-top:18px;background:#0a8f5a;color:white;font-size:17px;font-weight:700}
+.note{margin-top:15px;padding:12px;background:#eef7f3;border-radius:10px;font-size:14px;line-height:1.45}
+.preview{margin-top:18px;border-top:1px solid #eee;padding-top:16px}
+#imgPreview{display:none;max-width:100%;max-height:260px;object-fit:contain;border-radius:12px;margin-top:10px}
+</style>
+</head>
+<body>
+<header><h1>EVROSTAR • Панель администратора</h1></header>
+<main>
+<div class="card">
+<h2>Добавить товар</h2>
+<label>Название товара</label>
+<input id="name" placeholder="Например: EVROSTAR 630W">
+<label>Цена (сомони)</label>
+<input id="price" type="number" min="0" placeholder="950">
+<label>Категория</label>
+<select id="category">
+<option value="solar">Солнечные системы</option>
+<option value="battery">Аккумуляторы</option>
+<option value="camera">Камеры</option>
+<option value="internet">Роутеры / Интернет</option>
+<option value="tv">TV / Электроника</option>
+<option value="other">Другое</option>
+</select>
+<label>Характеристики</label>
+<textarea id="desc" placeholder="Мощность, напряжение, ток и другие характеристики"></textarea>
+<label>Фото товара</label>
+<input id="image" type="file" accept="image/*">
+<img id="imgPreview" alt="Предпросмотр">
+<button type="button" onclick="saveDraft()">Сохранить товар</button>
+<div class="note" id="status">Эта страница подготовлена отдельно от рабочего index.html, поэтому корзину сайта не меняет. Подключение к общей базе товаров сделаем следующим шагом.</div>
+</div>
+</main>
+<script>
+const image=document.getElementById('image'), preview=document.getElementById('imgPreview');
+image.addEventListener('change',()=>{
+ const f=image.files[0]; if(!f)return;
+ const r=new FileReader(); r.onload=e=>{preview.src=e.target.result;preview.style.display='block'};r.readAsDataURL(f);
+});
+function saveDraft(){
+ const p={name:name.value.trim(),price:Number(price.value||0),category:category.value,desc:desc.value.trim()};
+ if(!p.name){status.textContent='Введите название товара.';return}
+ const items=JSON.parse(localStorage.getItem('evrostar_admin_products')||'[]');
+ items.push(p);localStorage.setItem('evrostar_admin_products',JSON.stringify(items));
+ status.textContent='✓ Товар сохранён на этом устройстве. Следующим шагом подключим общую базу, чтобы он появился в каталоге.';
+}
+</script>
+</body>
+</html>
