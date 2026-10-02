@@ -581,7 +581,7 @@ WhatsApp
 =====================================
 */
 
-const PRODUCTS = [
+let PRODUCTS = [
 
 {
 id:1,
@@ -1021,9 +1021,21 @@ renderCart();
   const productsRef = collection(db, "products");
 const snapshot = await getDocs(productsRef);
 
+const firestoreProducts = [];
+
 snapshot.forEach((doc) => {
-  console.log(doc.id, doc.data());
+  firestoreProducts.push({
+    id: doc.id,
+    ...doc.data()
+  });
 });
+  if (firestoreProducts.length > 0) {
+  PRODUCTS = firestoreProducts;
+  renderProducts();
+  }
+
+console.log("EVROSTAR products:", firestoreProducts);
+
 </script>
 
 </body>
