@@ -9,86 +9,128 @@
 <style>
 *{box-sizing:border-box}html{scroll-behavior:smooth}
 body{margin:0;font-family:Arial,sans-serif;background:#f5f7fa;color:#142033}
-header{position:sticky;top:0;z-index:100;background:#071b2c;color:#fff;padding:14px 18px}
-.nav,.wrap{max-width:1100px;margin:auto}.nav{display:flex;justify-content:space-between;align-items:center}
-.logo{font-size:25px;font-weight:900;color:#ff9f1c}.nav a{color:#fff;text-decoration:none;margin-left:15px}
-.hero{background:linear-gradient(135deg,#071b2c,#12506f);color:#fff;padding:65px 18px}
-.hero h1{font-size:clamp(40px,8vw,70px);margin:10px 0}.hero p{font-size:18px;line-height:1.6;max-width:750px}
-.btn{border:0;background:#ff9f1c;padding:13px 17px;border-radius:11px;font-weight:bold;cursor:pointer;text-decoration:none;color:#111;display:inline-block;margin:3px}
-.btn.green{background:#18a957;color:#fff}.btn.red{background:#e63946;color:#fff}.section{padding:45px 18px}h2{font-size:32px}
-.tools{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap}.tools input,.tools select{padding:13px;border:1px solid #ddd;border-radius:10px;background:#fff}.tools input{flex:1;min-width:200px}
-.products{display:grid;grid-template-columns:repeat(3,1fr);gap:17px}.card{background:#fff;border-radius:18px;padding:20px;box-shadow:0 8px 25px #00000012}
-.icon{text-align:center;font-size:70px;padding:20px}.desc{color:#667789;line-height:1.5;min-height:45px}.price{font-size:22px;font-weight:900;margin:15px 0}
-.cart{background:#071b2c;color:#fff;padding:25px;border-radius:20px}.cartrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:15px 0;border-bottom:1px solid #ffffff25}
-.controls{display:flex;align-items:center;gap:8px}.small{width:38px;height:38px;border:0;border-radius:8px;font-size:20px;cursor:pointer}.total{font-size:25px;font-weight:900;margin:20px 0}
-.contact{background:#fff;border-radius:18px;padding:22px;box-shadow:0 8px 25px #00000012}.floatcart{position:fixed;right:18px;bottom:18px;width:62px;height:62px;border-radius:50%;background:#ff9f1c;display:flex;align-items:center;justify-content:center;font-size:28px;text-decoration:none;color:#111;box-shadow:0 7px 25px #0005;z-index:200}
-#badge{position:absolute;top:-4px;right:-4px;background:red;color:#fff;width:24px;height:24px;border-radius:50%;font-size:12px;display:flex;align-items:center;justify-content:center}
-.notice{display:none;background:#18a957;color:#fff;padding:12px 15px;border-radius:10px;margin-bottom:15px;font-weight:bold}.notice.show{display:block}
-footer{text-align:center;background:#04131f;color:#aaa;padding:30px}
-@media(max-width:750px){.products{grid-template-columns:1fr}.nav a{display:none}}
+header{position:sticky;top:0;z-index:100;background:#071b2c;color:#fff;padding:14px 16px}
+.nav,.wrap{max-width:1100px;margin:auto}.nav{display:flex;align-items:center;justify-content:space-between;gap:15px}
+.logo{font-size:24px;font-weight:900;color:#ff9f1c}.navlinks{display:flex;gap:18px}.nav a{color:#fff;text-decoration:none}
+.hero{background:linear-gradient(135deg,#071b2c,#125d73);color:#fff;padding:58px 16px}
+.hero h1{font-size:clamp(40px,8vw,70px);margin:10px 0}.hero p{font-size:18px;line-height:1.6;max-width:780px}
+.btn{display:inline-block;border:0;background:#ff9f1c;color:#142033;padding:13px 17px;border-radius:10px;font-weight:700;text-decoration:none;cursor:pointer}
+.btn.green{background:#18a957;color:#fff}.btn.red{background:#e63946;color:#fff}
+.section{padding:38px 16px}.tools{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap}
+.tools input,.tools select{padding:13px;border:1px solid #ddd;border-radius:10px;font-size:16px;background:#fff}
+.tools input{flex:1;min-width:220px}.products{display:grid;grid-template-columns:repeat(3,1fr);gap:17px}
+.card{background:#fff;border-radius:16px;padding:18px;box-shadow:0 8px 25px #00000010;display:flex;flex-direction:column;min-height:300px}
+.pic{height:145px;display:flex;align-items:center;justify-content:center;margin-bottom:8px;overflow:hidden}
+.pic img{max-width:100%;max-height:145px;object-fit:contain}.icon{font-size:70px}
+.card h3{margin:8px 0}.desc{color:#667789;line-height:1.45;flex:1}.price{font-size:20px;font-weight:800;margin:10px 0}
+.cart{background:#071b2c;color:#fff;padding:25px;border-radius:20px}.cartrow{display:flex;justify-content:space-between;align-items:center;gap:10px;border-bottom:1px solid #ffffff22;padding:12px 0}
+.controls{display:flex;align-items:center;gap:7px}.controls button{width:34px;height:34px;border:0;border-radius:7px;font-size:18px}
+.contact{background:#fff;border-radius:18px;padding:25px;box-shadow:0 8px 25px #00000010;line-height:1.8}
+.notice{display:none;background:#18a957;color:#fff;padding:12px 15px;border-radius:10px;position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:200}
+.floatcart{position:fixed;right:20px;bottom:20px;width:58px;height:58px;border-radius:50%;background:#ff9f1c;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:28px;z-index:150}
+#badge{position:absolute;top:-5px;right:-5px;background:red;color:#fff;width:23px;height:23px;border-radius:50%;font-size:12px;display:flex;align-items:center;justify-content:center}
+footer{background:#071b2c;color:#fff;text-align:center;padding:25px}
+@media(max-width:750px){.products{grid-template-columns:1fr}.navlinks{font-size:12px;gap:10px}.hero{padding:42px 14px}.section{padding:28px 13px}}
 </style>
 </head>
 <body>
-<header><div class="nav"><div class="logo">☀ EVROSTAR</div><div><a href="#catalog">Каталог</a><a href="#cart">Корзина</a><a href="#contact">Контакты</a></div></div></header>
-<section class="hero"><div class="wrap"><b>EVROSTAR • ТАДЖИКИСТАН</b><h1>Энергия. Технологии. EVROSTAR.</h1><p>Солнечные панели, гибридные инверторы, LiFePO4 аккумуляторы, камеры, 4G/5G роутеры, ТВ оборудование и другая техника.</p><a href="#catalog" class="btn">Каталог</a><a href="https://wa.me/992405555530" target="_blank" class="btn green">WhatsApp</a></div></section>
-<section class="section" id="catalog"><div class="wrap"><h2>Каталог EVROSTAR</h2><div class="tools"><input id="search" type="search" placeholder="Поиск товара..."><select id="category"><option value="all">Все категории</option><option value="solar">Солнечная энергия</option><option value="battery">Аккумуляторы</option><option value="camera">Камеры</option><option value="internet">Интернет</option><option value="tv">ТВ</option></select></div><div class="products" id="products"></div></div></section>
-<section class="section" id="cart"><div class="wrap"><div class="cart"><h2>🛒 Корзина</h2><div id="cartNotice" class="notice">✓ Товар добавлен в корзину</div><div id="cartList"></div><div class="total">Итого: <span id="total">0</span> сомони</div><button id="orderButton" type="button" class="btn green">Заказать через WhatsApp</button><button id="clearButton" type="button" class="btn red">Очистить</button></div></div></section>
-<section class="section" id="contact"><div class="wrap"><h2>Контакты</h2><div class="contact"><h3>EVROSTAR</h3><p>📍 г. Хисор, Большой базар Хисора</p><p>📱 +992 405 555 530</p><p>📸 Instagram: @evrostar001</p><p>🚚 Доставка по Таджикистану</p><a href="https://wa.me/992405555530" target="_blank" class="btn green">Написать в WhatsApp</a></div></div></section>
+<header><div class="nav"><div class="logo">☀ EVROSTAR</div><div class="navlinks"><a href="#catalog">Каталог</a><a href="#cart">Корзина</a><a href="#contact">Контакты</a></div></div></header>
+
+<section class="hero"><div class="wrap">
+<small>EVROSTAR • ТАДЖИКИСТАН</small>
+<h1>Энергия. Технологии.<br>EVROSTAR.</h1>
+<p>Солнечные панели, гибридные инверторы, LiFePO4 аккумуляторы, камеры, 4G/5G роутеры, TV оборудование и другая техника.</p>
+<a class="btn" href="#catalog">Каталог</a> <a class="btn green" href="https://wa.me/992405555530">WhatsApp</a>
+</div></section>
+
+<section class="section" id="catalog"><div class="wrap"><h2>Каталог EVROSTAR</h2>
+<div class="tools"><input id="search" placeholder="Поиск товара..."><select id="category">
+<option value="all">Все категории</option><option value="solar">Солнечные системы</option><option value="battery">Аккумуляторы</option><option value="camera">Камеры</option><option value="internet">Роутеры / Интернет</option><option value="tv">TV / Электроника</option><option value="other">Другое</option>
+</select></div>
+<div class="products" id="products"><p>Загрузка товаров...</p></div>
+</div></section>
+
+<section class="section" id="cart"><div class="wrap"><div class="cart"><h2>🛒 Корзина</h2><div id="cartItems">Корзина пуста.</div><h2>Итого: <span id="total">0</span> сомони</h2>
+<button class="btn green" id="orderBtn">Заказать через WhatsApp</button> <button class="btn red" id="clearBtn">Очистить</button>
+</div></div></section>
+
+<section class="section" id="contact"><div class="wrap"><h2>Контакты</h2><div class="contact">
+<strong>EVROSTAR</strong><br>📍 г. Хисор, Большой базар Хисора<br>📱 +992 405 555 530<br>📸 Instagram: @evrostar001<br>🚚 Доставка по Таджикистану<br>
+<a class="btn green" href="https://wa.me/992405555530">Написать в WhatsApp</a>
+</div></div></section>
 <footer>© 2026 EVROSTAR • Таджикистан</footer>
-<a href="#cart" class="floatcart" aria-label="Корзина">🛒<span id="badge">0</span></a>
-<script>
-const products=[
-{id:1,name:"EVROSTAR 630W",price:950,category:"solar",icon:"☀️",desc:"Солнечная панель 630W • 50V • до 15A"},
-{id:2,name:"Гибридный инвертор EVROSTAR",price:0,category:"solar",icon:"⚡",desc:"Гибридные инверторы EVROSTAR 1–18 kW"},
-{id:3,name:"LiFePO4 аккумулятор",price:0,category:"battery",icon:"🔋",desc:"12.8V–51.2V • для солнечных систем"},
-{id:4,name:"4G Solar камера",price:700,category:"camera",icon:"📹",desc:"SIM • microSD • запись 24/7 • удалённый просмотр"},
-{id:5,name:"4G / 5G Router",price:0,category:"internet",icon:"📡",desc:"Wi-Fi • SIM • интернет для дома и офиса"},
-{id:6,name:"Android TV Box",price:250,category:"tv",icon:"📺",desc:"Smart TV • Wi-Fi • YouTube • приложения"}
-];
-let cart=[];
+<a href="#cart" class="floatcart">🛒<span id="badge">0</span></a><div class="notice" id="notice">Добавлено в корзину</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getFirestore, collection, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+
+const firebaseConfig={
+ apiKey:"AIzaSyA_ZCemxySIYVzh2WESMDRZ_rZlFPWx6w",
+ authDomain:"evrostar-c7c85.firebaseapp.com",
+ projectId:"evrostar-c7c85",
+ storageBucket:"evrostar-c7c85.firebasestorage.app",
+ messagingSenderId:"869866043004",
+ appId:"1:869866043004:web:4b45a671f60d5faa04bbf9",
+ measurementId:"G-4EWY5OH0D"
+};
+const app=initializeApp(firebaseConfig), db=getFirestore(app);
 const $=id=>document.getElementById(id);
-function priceText(n){return n? n.toLocaleString("ru-RU")+" сомони":"Цена по запросу"}
+let products=[], cart=JSON.parse(localStorage.getItem("evrostar_cart")||"[]");
+
+const fallback=[
+{id:"local1",name:"EVROSTAR 630W",price:950,category:"solar",icon:"☀️",desc:"Солнечная панель 630W • 50V • до 15A"},
+{id:"local2",name:"Гибридный инвертор EVROSTAR",price:0,category:"solar",icon:"⚡",desc:"Гибридные инверторы EVROSTAR 1–18 kW"},
+{id:"local3",name:"LiFePO4 аккумулятор",price:0,category:"battery",icon:"🔋",desc:"12.8V–51.2V • для солнечных систем"},
+{id:"local4",name:"4G Solar камера",price:700,category:"camera",icon:"📹",desc:"SIM • microSD • запись 24/7 • удалённый просмотр"},
+{id:"local5",name:"4G / 5G Router",price:0,category:"internet",icon:"📡",desc:"Wi‑Fi • SIM • интернет для дома и офиса"},
+{id:"local6",name:"Android TV Box",price:250,category:"tv",icon:"📺",desc:"Smart TV • Wi‑Fi • YouTube • приложения"}
+];
+
+function priceText(n){n=Number(n)||0;return n?n.toLocaleString("ru-RU")+" сомони":"Цена по запросу"}
+function safe(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function drawProducts(){
- const q=$("search").value.trim().toLowerCase(), cat=$("category").value;
- $("products").innerHTML="";
- const filtered=products.filter(p=>(cat==="all"||p.category===cat)&&(p.name.toLowerCase().includes(q)||p.desc.toLowerCase().includes(q)));
- if(!filtered.length){$("products").innerHTML='<div class="card">Товар не найден</div>';return}
- filtered.forEach(p=>{
-  const card=document.createElement("div"); card.className="card";
-  card.innerHTML=`<div class="icon">${p.icon}</div><h3></h3><div class="desc"></div><div class="price"></div>`;
-  card.querySelector("h3").textContent=p.name; card.querySelector(".desc").textContent=p.desc; card.querySelector(".price").textContent=priceText(p.price);
-  const b=document.createElement("button"); b.type="button"; b.className="btn"; b.textContent="В корзину"; b.addEventListener("click",()=>addToCart(p.id)); card.appendChild(b); $("products").appendChild(card);
- });
+ const q=$("search").value.trim().toLowerCase(),cat=$("category").value;
+ const list=products.filter(p=>(cat==="all"||p.category===cat)&&(`${p.name} ${p.desc||""}`.toLowerCase().includes(q)));
+ $("products").innerHTML=list.length?list.map(p=>`<article class="card">
+ <div class="pic">${p.image?`<img src="${safe(p.image)}" alt="${safe(p.name)}" onerror="this.parentElement.innerHTML='<div class=icon>📦</div>'">`:`<div class="icon">${p.icon||"📦"}</div>`}</div>
+ <h3>${safe(p.name)}</h3><div class="desc">${safe(p.desc||"")}</div><div class="price">${priceText(p.price)}</div>
+ <button class="btn add" data-id="${safe(p.id)}">В корзину</button></article>`).join(""):"<p>Товары не найдены.</p>";
+ document.querySelectorAll(".add").forEach(b=>b.onclick=()=>addCart(b.dataset.id));
 }
-function addToCart(id){
- const p=products.find(x=>x.id===id); if(!p)return;
- const x=cart.find(x=>x.id===id); if(x)x.qty++; else cart.push({id:p.id,name:p.name,price:p.price,qty:1});
- drawCart(); $("cartNotice").classList.add("show"); setTimeout(()=>$("cartNotice").classList.remove("show"),1200); $("cart").scrollIntoView({behavior:"smooth"});
+function addCart(id){
+ const p=products.find(x=>String(x.id)===String(id));if(!p)return;
+ const x=cart.find(x=>String(x.id)===String(id));x?x.qty++:cart.push({...p,qty:1});
+ saveCart();$("notice").style.display="block";setTimeout(()=>$("notice").style.display="none",1200);
 }
+function saveCart(){localStorage.setItem("evrostar_cart",JSON.stringify(cart));drawCart()}
 function drawCart(){
- const list=$("cartList"); list.innerHTML=""; let count=0,total=0;
- if(!cart.length) list.innerHTML="<p>Корзина пуста.</p>";
- cart.forEach(item=>{
-  count+=item.qty; total+=item.price*item.qty;
-  const row=document.createElement("div"); row.className="cartrow";
-  const info=document.createElement("div"); const name=document.createElement("b"); name.textContent=item.name; const pr=document.createElement("small"); pr.textContent=priceText(item.price); info.append(name,document.createElement("br"),pr);
-  const controls=document.createElement("div"); controls.className="controls";
-  const minus=document.createElement("button"); minus.className="small"; minus.textContent="−"; minus.onclick=()=>changeQty(item.id,-1);
-  const qty=document.createElement("b"); qty.textContent=item.qty;
-  const plus=document.createElement("button"); plus.className="small"; plus.textContent="+"; plus.onclick=()=>changeQty(item.id,1);
-  controls.append(minus,qty,plus); row.append(info,controls); list.appendChild(row);
- });
- $("badge").textContent=count; $("total").textContent=total.toLocaleString("ru-RU");
+ $("badge").textContent=cart.reduce((s,x)=>s+x.qty,0);
+ if(!cart.length){$("cartItems").innerHTML="Корзина пуста.";$("total").textContent="0";return}
+ $("cartItems").innerHTML=cart.map((x,i)=>`<div class="cartrow"><div><b>${safe(x.name)}</b><br><small>${priceText(x.price)}</small></div><div class="controls"><button data-i="${i}" data-d="-1">−</button><b>${x.qty}</b><button data-i="${i}" data-d="1">+</button></div></div>`).join("");
+ document.querySelectorAll(".controls button").forEach(b=>b.onclick=()=>{let i=+b.dataset.i;cart[i].qty+=+b.dataset.d;if(cart[i].qty<=0)cart.splice(i,1);saveCart()});
+ $("total").textContent=cart.reduce((s,x)=>s+(Number(x.price)||0)*x.qty,0).toLocaleString("ru-RU");
 }
-function changeQty(id,n){const x=cart.find(x=>x.id===id);if(!x)return;x.qty+=n;if(x.qty<=0)cart=cart.filter(x=>x.id!==id);drawCart()}
-function clearCart(){cart=[];drawCart()}
-function sendOrder(){
- if(!cart.length){alert("Сначала добавьте товар в корзину.");return}
- let text="Здравствуйте, EVROSTAR!\nХочу заказать:\n\n",total=0;
- cart.forEach((x,i)=>{text+=`${i+1}. ${x.name} — ${x.qty} шт.`;if(x.price){text+=` × ${x.price} сомони`;total+=x.price*x.qty}text+="\n"});
- if(total)text+=`\nИтого: ${total} сомони`; window.location.href="https://wa.me/992405555530?text="+encodeURIComponent(text);
+$("clearBtn").onclick=()=>{cart=[];saveCart()};
+$("orderBtn").onclick=()=>{
+ if(!cart.length){alert("Корзина пуста.");return}
+ let total=cart.reduce((s,x)=>s+(Number(x.price)||0)*x.qty,0);
+ let msg="Здравствуйте! Хочу заказать в EVROSTAR:%0A%0A"+cart.map(x=>`• ${x.name} × ${x.qty} — ${priceText(x.price)}`).join("%0A")+`%0A%0AИтого: ${total.toLocaleString("ru-RU")} сомони`;
+ location.href="https://wa.me/992405555530?text="+msg;
+};
+$("search").oninput=drawProducts;$("category").onchange=drawProducts;
+
+async function loadProducts(){
+ try{
+   let snap;
+   try{snap=await getDocs(query(collection(db,"products"),orderBy("createdAt","desc")))}
+   catch(e){snap=await getDocs(collection(db,"products"))}
+   const cloud=snap.docs.map(d=>{const v=d.data();return {id:d.id,name:v.name||"Товар",price:Number(v.price)||0,category:v.category||"other",desc:v.desc||v.description||"",image:v.image||v.imageUrl||v.photo||"",icon:"📦"}});
+   products=cloud.length?cloud:fallback;
+ }catch(e){console.error(e);products=fallback}
+ drawProducts();
 }
-document.addEventListener("DOMContentLoaded",()=>{$("search").addEventListener("input",drawProducts);$("category").addEventListener("change",drawProducts);$("clearButton").addEventListener("click",clearCart);$("orderButton").addEventListener("click",sendOrder);drawProducts();drawCart()});
+drawCart();loadProducts();
 </script>
 </body>
 </html>
