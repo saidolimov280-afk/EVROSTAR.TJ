@@ -693,7 +693,141 @@ function sendOrder(){
 drawProducts();
 drawCart();
 
-</script>
+<script>
+var products = [
+  {
+    id: 1,
+    name: "EVROSTAR 630W",
+    price: 950,
+    category: "solar",
+    icon: "☀️",
+    desc: "Солнечная панель 630W • 50V • до 15A"
+  },
+  {
+    id: 2,
+    name: "Гибридный инвертор EVROSTAR",
+    price: 0,
+    category: "solar",
+    icon: "⚡",
+    desc: "Гибридные инверторы EVROSTAR 1–18 kW"
+  },
+  {
+    id: 3,
+    name: "LiFePO4 аккумулятор",
+    price: 0,
+    category: "battery",
+    icon: "🔋",
+    desc: "12.8V–51.2V • для солнечных систем"
+  },
+  {
+    id: 4,
+    name: "4G Solar камера",
+    price: 700,
+    category: "camera",
+    icon: "📹",
+    desc: "SIM • microSD • запись 24/7 • удалённый просмотр"
+  },
+  {
+    id: 5,
+    name: "4G / 5G Router",
+    price: 0,
+    category: "internet",
+    icon: "📡",
+    desc: "Wi-Fi • SIM • интернет для дома и офиса"
+  },
+  {
+    id: 6,
+    name: "Android TV Box",
+    price: 250,
+    category: "tv",
+    icon: "📺",
+    desc: "Smart TV • Wi-Fi • YouTube • приложения"
+  }
+];
+
+var cart = [];
+
+function priceText(price) {
+  if (!price) return "Цена по запросу";
+  return price.toLocaleString("ru-RU") + " сомони";
+}
+
+function drawProducts() {
+  var box = document.getElementById("products");
+  var searchBox = document.getElementById("search");
+  var categoryBox = document.getElementById("category");
+
+  var search = searchBox ? searchBox.value.toLowerCase() : "";
+  var category = categoryBox ? categoryBox.value : "all";
+
+  box.innerHTML = "";
+
+  products.forEach(function(p) {
+    var searchOK =
+      p.name.toLowerCase().includes(search) ||
+      p.desc.toLowerCase().includes(search);
+
+    var categoryOK =
+      category === "all" || p.category === category;
+
+    if (!searchOK || !categoryOK) return;
+
+    var card = document.createElement("div");
+    card.className = "card";
+
+    var icon = document.createElement("div");
+    icon.className = "icon";
+    icon.textContent = p.icon;
+
+    var title = document.createElement("h3");
+    title.textContent = p.name;
+
+    var desc = document.createElement("div");
+    desc.className = "desc";
+    desc.textContent = p.desc;
+
+    var price = document.createElement("div");
+    price.className = "price";
+    price.textContent = priceText(p.price);
+
+    var button = document.createElement("button");
+    button.type = "button";
+    button.className = "btn";
+    button.textContent = "В корзину";
+
+    button.addEventListener("click", function() {
+      addCart(p.id);
+    });
+
+    card.appendChild(icon);
+    card.appendChild(title);
+    card.appendChild(desc);
+    card.appendChild(price);
+    card.appendChild(button);
+
+    box.appendChild(card);
+  });
+}
+
+function addCart(id) {
+  var product = products.find(function(p) {
+    return p.id === id;
+  });
+
+  if (!product) return;
+
+  var item = cart.find(function(x) {
+    return x.id === id;
+  });
+
+  if (item) {
+    item.qty++;
+  } else {
+    cart.push({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+     
 
 </body>
 </html>
