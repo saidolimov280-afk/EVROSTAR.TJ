@@ -31,7 +31,7 @@ textarea{min-height:140px;resize:vertical}.btn{border:0;background:#1677df;color
 </section>
 
 <section class="card" id="adminBox" style="display:none">
-<div class="row"><div><h2>Добавить товар</h2><div class="small" id="userEmail"></div></div><div><button class="secondary" id="logoutBtn">Выйти</button></div></div>
+<div class="row"><div><h2 id="formTitle">Добавить товар</h2><div class="small" id="userEmail"></div></div><div><button class="secondary" id="logoutBtn">Выйти</button></div></div>
 
 <label>Название товара</label><input id="name" placeholder="Например: EVROSTAR 630W">
 <label>Цена (сомони)</label><input id="price" type="number" min="0" step="0.01" placeholder="950">
@@ -49,22 +49,21 @@ textarea{min-height:140px;resize:vertical}.btn{border:0;background:#1677df;color
 <label>Фото товара с телефона</label>
 <input id="photo" type="file" accept="image/*">
 <img id="preview" alt="Предпросмотр">
-<div class="small">Фото загружается в Firebase Storage. Рекомендуется JPG/PNG/WebP до 8 МБ.</div>
+<div class="small">Выберите JPG, PNG или WebP с телефона. Фото автоматически уменьшается и сохраняется вместе с товаром.</div>
 <div class="progress" id="progress"></div>
 
 <label>Или ссылка на фото (необязательно)</label>
 <input id="imageUrl" type="url" placeholder="https://...">
 
-<button class="btn" id="saveBtn">Сохранить товар</button>
+<button class="btn" id="saveBtn">Сохранить товар</button><button class="secondary" id="newBtn">Новый товар / отменить редактирование</button>
 <div class="msg" id="status"></div>
 </section>
-</main>
+<section class="card" id="listBox" style="display:none"><h2>Мои товары</h2><input id="listSearch" placeholder="Найти товар"><div id="productList"></div></section></main>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
+import { getFirestore, collection, addDoc, serverTimestamp, onSnapshot, doc, updateDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const firebaseConfig={
  apiKey: "AIzaSyA_zCecmxy5IYVzh2wESMDRZ_rZlFpWx6w",
@@ -76,7 +75,7 @@ const firebaseConfig={
  measurementId: "G-4EWNY50H0D"
 };
 const app=initializeApp(firebaseConfig);
-const auth=getAuth(app), db=getFirestore(app), storage=getStorage(app);
+const auth=getAuth(app), db=getFirestore(app);
 const $=id=>document.getElementById(id);
 function msg(id,text,ok=false){const e=$(id);e.style.display="block";e.textContent=text;e.style.background=ok?"#e8fff0":"#fff0f0";e.style.color=ok?"#126b34":"#a51d2d"}
 
@@ -93,35 +92,76 @@ onAuthStateChanged(auth,user=>{
  if(user)$("userEmail").textContent=user.email||"";
 });
 
-$("photo").onchange=()=>{
- const f=$("photo").files[0];
- if(!f){$("preview").style.display="none";return}
- if(f.size>8*1024*1024){msg("status","Фото больше 8 МБ. Выберите файл поменьше.");$("photo").value="";return}
- $("preview").src=URL.createObjectURL(f);$("preview").style.display="block";
-};
 
-function uploadPhoto(file){
- return new Promise((resolve,reject)=>{
-   const ext=(file.name.split(".").pop()||"jpg").replace(/[^a-zA-Z0-9]/g,"");
-   const path=`products/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-   const task=uploadBytesResumable(ref(storage,path),file,{contentType:file.type||"image/jpeg"});
-   task.on("state_changed",s=>{
-     $("progress").textContent=`Загрузка фото: ${Math.round(s.bytesTransferred/s.totalBytes*100)}%`;
-   },reject,async()=>resolve(await getDownloadURL(task.snapshot.ref)));
+let editId=null, existingImage="", previewURL="", products=[], stopList=null;
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function safeImage(s){return /^https?:\/\//i.test(s)||/^data:image\/(jpeg|png|webp);base64,/i.test(s)}
+function resetForm(){
+ editId=null;existingImage="";$("formTitle").textContent="Добавить товар";
+ ["name","price","desc","imageUrl","photo"].forEach(id=>$(id).value="");
+ $("preview").style.display="none";$("progress").textContent="";
+ if(previewURL){URL.revokeObjectURL(previewURL);previewURL=""}
+}
+$("newBtn").onclick=resetForm;
+$("photo").onchange=()=>{
+ const f=$("photo").files[0];if(previewURL)URL.revokeObjectURL(previewURL);
+ if(!f){$("preview").style.display="none";return}
+ if(!/^image\/(jpeg|png|webp)$/i.test(f.type)||f.size>25*1024*1024){msg("status","Выберите JPG, PNG или WebP до 25 МБ.");$("photo").value="";return}
+ previewURL=URL.createObjectURL(f);$("preview").src=previewURL;$("preview").style.display="block";
+};
+async function uploadPhoto(file){
+ $("progress").textContent="Подготовка фото…";
+ const url=URL.createObjectURL(file);
+ try{
+  const im=new Image();im.src=url;await im.decode();
+  const canvas=document.createElement("canvas");
+  let side=1400;
+  for(let attempt=0;attempt<8;attempt++){
+   const scale=Math.min(1,side/Math.max(im.naturalWidth,im.naturalHeight));
+   canvas.width=Math.max(1,Math.round(im.naturalWidth*scale));canvas.height=Math.max(1,Math.round(im.naturalHeight*scale));
+   const ctx=canvas.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(im,0,0,canvas.width,canvas.height);
+   const data=canvas.toDataURL("image/jpeg",0.8);
+   if(data.length<450000){$("progress").textContent="Фото готово";return data}
+   side=Math.round(side*0.75);
+  }
+  throw new Error("Не удалось уменьшить фото. Выберите другое изображение.");
+ }finally{URL.revokeObjectURL(url)}
+}
+function renderList(){
+ const term=$("listSearch").value.toLowerCase();
+ $("productList").innerHTML=products.filter(p=>String(p.name).toLowerCase().includes(term)).map(p=>`<div style="padding:14px 0;border-bottom:1px solid #ddd"><b>${esc(p.name)}</b> — ${Number(p.price)>0?Number(p.price).toLocaleString("ru-RU")+" сомони":"Цена по запросу"}<button data-edit="${esc(p.id)}">Изменить товар</button></div>`).join("")||"Товаров пока нет.";
+ document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{
+  const p=products.find(p=>p.id===b.dataset.edit);if(!p)return;
+  resetForm();editId=p.id;existingImage=p.image||"";$("formTitle").textContent="Изменить товар";
+  ["name","price","category","desc"].forEach(id=>$(id).value=p[id]??"");
+  if(safeImage(existingImage)){$("preview").src=existingImage;$("preview").style.display="block"}
+  $("adminBox").scrollIntoView({behavior:"smooth"});
  });
 }
-
+$("listSearch").oninput=renderList;
+onAuthStateChanged(auth,user=>{
+ $("listBox").style.display=user?"block":"none";
+ if(stopList){stopList();stopList=null}products=[];resetForm();renderList();
+ if(user)stopList=onSnapshot(collection(db,"products"),snap=>{
+  products=snap.docs.map(d=>({...d.data(),id:d.id}));renderList();
+ },e=>{$("productList").textContent="Не удалось прочитать товары: "+e.message});
+});
 $("saveBtn").onclick=async()=>{
- const name=$("name").value.trim(), price=Number($("price").value)||0, category=$("category").value, desc=$("desc").value.trim();
+ const name=$("name").value.trim(), price=Number($("price").value), category=$("category").value, desc=$("desc").value.trim();
+ if(!Number.isFinite(price)||price<0){msg("status","Укажите корректную цену или оставьте поле пустым.");return}
+ if(name.length>200||desc.length>20000){msg("status","Название до 200 знаков, описание до 20 000.");return}
  if(!name){msg("status","Введите название товара.");return}
  if(!auth.currentUser){msg("status","Сначала войдите в аккаунт администратора.");return}
  $("saveBtn").disabled=true;$("saveBtn").textContent="Сохраняем...";
  try{
-   let image=$("imageUrl").value.trim();
+   let image=$("imageUrl").value.trim()||existingImage;
+   if(image&&!safeImage(image))throw new Error("Укажите ссылку https:// на фото.");
    const file=$("photo").files[0];
    if(file) image=await uploadPhoto(file);
-   await addDoc(collection(db,"products"),{name,price,category,desc,image,createdAt:serverTimestamp()});
-   msg("status","✓ Товар сохранён в Firestore и появится в каталоге.",true);
+   const data={name,price,category,desc,image,updatedAt:serverTimestamp()};
+   if(editId)await updateDoc(doc(db,"products",editId),data);
+   else await addDoc(collection(db,"products"),{...data,createdAt:serverTimestamp()});
+   msg("status","✓ Товар сохранён и появится в каталоге.",true);resetForm();
    $("name").value="";$("price").value="";$("desc").value="";$("imageUrl").value="";$("photo").value="";
    $("preview").style.display="none";$("progress").textContent="";
  }catch(e){
