@@ -67,13 +67,13 @@ import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.g
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
 
 const firebaseConfig={
- apiKey:"AIzaSyA_zCemxy5IYVzh2wESMDRZ_rZlFpWx6w",
- authDomain:"evrostar-c7c85.firebaseapp.com",
- projectId:"evrostar-c7c85",
- storageBucket:"evrostar-c7c85.firebasestorage.app",
- messagingSenderId:"869866043004",
- appId:"1:869866043004:web:4b45a671f60d5faa04bbf9",
- measurementId:"G-4EWY5OH0D"
+ apiKey: "AIzaSyA_zCecmxy5IYVzh2wESMDRZ_rZlFpWx6w",
+ authDomain: "evrostar-c7c85.firebaseapp.com",
+ projectId: "evrostar-c7c85",
+ storageBucket: "evrostar-c7c85.firebasestorage.app",
+ messagingSenderId: "869866043004",
+ appId: "1:869866043004:web:4b45a671f60d5faa04bbf9",
+ measurementId: "G-4EWNY50H0D"
 };
 const app=initializeApp(firebaseConfig);
 const auth=getAuth(app), db=getFirestore(app), storage=getStorage(app);
