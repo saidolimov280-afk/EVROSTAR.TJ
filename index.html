@@ -84,15 +84,17 @@ function num(value){const text=String(value).trim().replace(',','.');return /^\d
 window.evroKitEstimate=function(power,hours){
 if(!Number.isFinite(power)||power<0.1||power>1000||!Number.isFinite(hours)||hours<0||hours>24)return null;
 const panels=Math.ceil(power/(0.63*0.8)),minimumInverter=power*1.25;
-const sizes=[1,1.5,2.5,3.5,4.2,6.2,11,18];
+const sizes=[1,1.5,2,2.5,3.5,4.2,6.2,11,18];
 const inverterUnit=sizes.find(n=>n>=minimumInverter)||18,inverters=Math.ceil(minimumInverter/inverterUnit);
-const requiredBattery=power*hours/(0.8*0.9),packSizes=[5.12,10.24,15.36];
-const batteryUnit=hours===0?0:(packSizes.find(n=>n>=requiredBattery)||15.36),batteries=hours===0?0:Math.ceil(requiredBattery/batteryUnit);
-const batteryTotal=batteryUnit*batteries;
-return {power,hours,panels,installed:panels*0.63,inverterUnit,inverters,batteryUnit,batteries,batteryTotal,batteryAh:Math.round(batteryUnit*1000/51.2),runtime:batteryTotal*0.8*0.9/power};
+const batteryVoltage=inverterUnit<=2?12.8:inverterUnit<=4.2?25.6:51.2;
+const requiredBattery=power*hours/(0.8*0.9);
+const choices=[100,150,200,300].map(ah=>{const unit=batteryVoltage*ah/1000,count=hours===0?0:Math.ceil(requiredBattery/unit-1e-10);return {ah,unit,count,total:unit*count}});
+choices.sort((a,b)=>Math.abs(a.total-b.total)>1e-8?a.total-b.total:a.count-b.count);
+const selected=choices[0],batteryUnit=hours===0?0:selected.unit,batteries=selected.count,batteryTotal=batteryUnit*batteries;
+return {power,hours,panels,installed:panels*0.63,inverterUnit,inverters,batteryUnit,batteries,batteryTotal,batteryVoltage,batteryAh:hours===0?0:selected.ah,runtime:batteryTotal*0.8*0.9/power};
 };
 function f(n){return n.toLocaleString(window.evroLang==='ru'?'ru-RU':'tg-TJ',{maximumFractionDigits:2})}
-function rows(r){return [[t('kitPanels'),r.panels+' '+t('kitUnit')+' × 630 W',t('kitInstalled')+': '+f(r.installed)+' kW'],[t('kitInverter'),r.inverters+' '+t('kitUnit')+' × '+f(r.inverterUnit)+' kW',r.inverters>1?t('kitParallel'):''],[t('kitBattery'),r.batteries?r.batteries+' '+t('kitUnit')+' × 51.2 V / '+r.batteryAh+' Ah':t('kitNoBattery'),r.batteries?t('kitBatteryTotal')+': '+f(r.batteryTotal)+' kWh':'']]}
+function rows(r){return [[t('kitPanels'),r.panels+' '+t('kitUnit')+' × 630 W',t('kitInstalled')+': '+f(r.installed)+' kW'],[t('kitInverter'),r.inverters+' '+t('kitUnit')+' × '+f(r.inverterUnit)+' kW / '+f(r.batteryVoltage)+' V',r.inverters>1?t('kitParallel'):''],[t('kitBattery'),r.batteries?r.batteries+' '+t('kitUnit')+' × '+f(r.batteryVoltage)+' V / '+r.batteryAh+' Ah':t('kitNoBattery'),r.batteries?t('kitBatteryTotal')+': '+f(r.batteryTotal)+' kWh':'']]}
 function accessories(){return [[t('kitMount'),t('kitMountDetail')],[t('kitCable'),t('kitCableDetail')],[t('kitProtection'),t('kitProtectionDetail')]]}
 function render(){const r=result;if(!r)return;
 el('calcResults').innerHTML='<h2 class="kitHeading">'+t('kitSummary')+' '+f(r.power)+' kW</h2><div class="kitList">'+rows(r).map(([title,val,note])=>'<div class="kitRow"><span>'+title+'</span><strong>'+val+'</strong>'+(note?'<small>'+note+'</small>':'')+'</div>').join('')+'</div>'+(r.batteries?'<p class="kitRuntime">'+t('kitRuntime')+': <b>≈ '+f(r.runtime)+' '+t('kitHourUnit')+'</b> ('+f(r.power)+' kW)</p>':'')+'<h3>'+t('kitMore')+'</h3><ul class="kitAccessories">'+accessories().map(([title,note])=>'<li><b>'+title+'</b><span>'+note+'</span></li>').join('')+'</ul>'+(r.power>14.4?'<p class="calcHelp">'+t('kitLarge')+'</p>':'');
