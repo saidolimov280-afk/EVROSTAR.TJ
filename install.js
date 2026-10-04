@@ -10,6 +10,7 @@ window.addEventListener('appinstalled',()=>{pending=null;sync();document.getElem
 document.addEventListener('DOMContentLoaded',()=>{
 sync();
 buttons().forEach(b=>b.addEventListener('click',async()=>{
+if(/Android/i.test(navigator.userAgent)){location.href='/downloads/EVROSTAR.apk';return;}
 if(installed()){location.href='/';return;}
 if(pending){const prompt=pending;pending=null;await prompt.prompt();await prompt.userChoice;return;}
 const help=document.getElementById('installHelp');
