@@ -134,7 +134,7 @@ function calculate(){
  el('simpleError').hidden=!!r;el('simplePower').setAttribute('aria-invalid',String(!r));
  if(!r){el('simpleError').textContent=ru?'Введите от 0,1 до 1000 кВт.':'Аз 0,1 то 1000 кВт ворид кунед.';el('simpleResult').replaceChildren();return}
  const f=n=>n.toLocaleString('ru-RU',{maximumFractionDigits:3});
- const rows=[[(ru?'Гибридный инвертор':'Гибридный инвертор'),'1 '+(ru?'шт.':'дона')+' × '+f(r.power)+' кВт / '+r.dcVoltage+' V'],[(ru?'Солнечные панели':'Панелҳои офтобӣ'),r.panels+' '+(ru?'шт.':'дона')+' × 630 W'],[(ru?'Аккумулятор':'АКБ'),'1 '+(ru?'шт.':'дона')+' × '+f(r.voltage)+' V / '+r.ah+' Ah']];
+ const rows=[[(ru?'Гибридный инвертор':'Гибридный инвертор'),'1 '+(ru?'шт.':'дона')+' × '+f(r.power)+' кВт / '+r.dcVoltage+' V'],[(ru?'Солнечные панели':'Панелҳои офтобӣ'),r.panels+' '+(ru?'шт.':'дона')+' × 630 W'],[(ru?'Аккумулятор':'АКБ'),'1 '+(ru?'шт.':'дона')+' × '+f(r.voltage)+' V / '+r.ah+' Ah = '+f(r.voltage*r.ah/1000)+' '+(ru?'кВт·ч':'кВт·соат')]];
  el('simpleResult').replaceChildren(...rows.map(([title,value])=>{const row=document.createElement('div');row.className='kitRow';const label=document.createElement('span');label.textContent=title;const strong=document.createElement('strong');strong.textContent=value;row.append(label,strong);return row}));
 }
 el('simpleForm').onsubmit=e=>{e.preventDefault();calculate()};el('simplePower').oninput=calculate;el('simpleAh').onchange=calculate;
