@@ -44,7 +44,7 @@ textarea{min-height:140px;resize:vertical}.btn{border:0;background:#1677df;color
 <option value="tv">TV / Электроника</option>
 <option value="other">Другое</option>
 </select>
-<label>Характеристики</label><textarea id="desc" placeholder="Мощность, напряжение, особенности..."></textarea>
+<label for="availability">Наличие / Мавҷудият</label><select id="availability"><option value="unknown">Уточнить наличие / Мавҷудиятро пурсед</option><option value="in_stock">В наличии / Дар анбор ҳаст</option><option value="out_of_stock">Нет в наличии / Тамом шуд</option><option value="on_order">Под заказ / Бо фармоиш</option></select><div class="small">Статус будет виден покупателю в каталоге.</div><label>Характеристики</label><textarea id="desc" placeholder="Мощность, напряжение, особенности..."></textarea>
 
 <label>Фото товара с телефона</label>
 <input id="photo" type="file" accept="image/*">
@@ -99,7 +99,7 @@ function safeImage(s){return /^https?:\/\//i.test(s)||/^data:image\/(jpeg|png|we
 function resetForm(){
  editId=null;existingImage="";$("formTitle").textContent="Добавить товар";
  ["name","price","desc","imageUrl","photo"].forEach(id=>$(id).value="");
- $("preview").style.display="none";$("progress").textContent="";
+ $("availability").value="unknown";$("preview").style.display="none";$("progress").textContent="";
  if(previewURL){URL.revokeObjectURL(previewURL);previewURL=""}
 }
 $("newBtn").onclick=resetForm;
@@ -127,13 +127,15 @@ async function uploadPhoto(file){
   throw new Error("Не удалось уменьшить фото. Выберите другое изображение.");
  }finally{URL.revokeObjectURL(url)}
 }
+function availabilityValue(value){return ['in_stock','out_of_stock','on_order'].includes(value)?value:'unknown'}
+function availabilityText(value){return {in_stock:'В наличии / Дар анбор ҳаст',out_of_stock:'Нет в наличии / Тамом шуд',on_order:'Под заказ / Бо фармоиш',unknown:'Наличие уточняется / Мавҷудиятро пурсед'}[availabilityValue(value)]}
 function renderList(){
  const term=$("listSearch").value.toLowerCase();
- $("productList").innerHTML=products.filter(p=>String(p.name).toLowerCase().includes(term)).map(p=>`<div style="padding:14px 0;border-bottom:1px solid #ddd"><b>${esc(p.name)}</b> — ${Number(p.price)>0?Number(p.price).toLocaleString("ru-RU")+" сомони":"Цена по запросу"}<button data-edit="${esc(p.id)}">Изменить товар</button></div>`).join("")||"Товаров пока нет.";
+ $("productList").innerHTML=products.filter(p=>String(p.name).toLowerCase().includes(term)).map(p=>`<div style="padding:14px 0;border-bottom:1px solid #ddd"><b>${esc(p.name)}</b> — ${Number(p.price)>0?Number(p.price).toLocaleString("ru-RU")+" сомони":"Цена по запросу"}<div class="small">${esc(availabilityText(p.availability))}</div><button data-edit="${esc(p.id)}">Изменить товар</button></div>`).join("")||"Товаров пока нет.";
  document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{
   const p=products.find(p=>p.id===b.dataset.edit);if(!p)return;
   resetForm();editId=p.id;existingImage=p.image||"";$("formTitle").textContent="Изменить товар";
-  ["name","price","category","desc"].forEach(id=>$(id).value=p[id]??"");
+  ["name","price","category","desc"].forEach(id=>$(id).value=p[id]??"");$("availability").value=availabilityValue(p.availability);
   if(safeImage(existingImage)){$("preview").src=existingImage;$("preview").style.display="block"}
   $("adminBox").scrollIntoView({behavior:"smooth"});
  });
@@ -158,7 +160,7 @@ $("saveBtn").onclick=async()=>{
    if(image&&!safeImage(image))throw new Error("Укажите ссылку https:// на фото.");
    const file=$("photo").files[0];
    if(file) image=await uploadPhoto(file);
-   const data={name,price,category,desc,image,updatedAt:serverTimestamp()};
+   const data={name,price,category,desc,image,availability:availabilityValue($("availability").value),updatedAt:serverTimestamp()};
    if(editId)await updateDoc(doc(db,"products",editId),data);
    else await addDoc(collection(db,"products"),{...data,createdAt:serverTimestamp()});
    msg("status","✓ Товар сохранён и появится в каталоге.",true);resetForm();
@@ -174,3 +176,4 @@ $("saveBtn").onclick=async()=>{
 </script>
 </body>
 </html>
+
