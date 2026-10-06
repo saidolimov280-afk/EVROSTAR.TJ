@@ -35,7 +35,7 @@ textarea{min-height:140px;resize:vertical}.btn{border:0;background:#1677df;color
 
 <label>Название товара</label><input id="name" placeholder="Например: EVROSTAR 630W">
 <label>Цена (сомони)</label><input id="price" type="number" min="0" step="0.01" placeholder="950">
-<label>Категория</label>
+<label for="oldPrice">Прежняя цена (для скидки, необязательно)</label><input id="oldPrice" type="number" min="0" step="0.01" placeholder="1100"><div class="small" id="discountPreview" aria-live="polite">Оставьте пустым, если скидки нет.</div><label>Категория</label>
 <select id="category">
 <option value="solar">Солнечные системы</option>
 <option value="battery">Аккумуляторы</option>
@@ -98,8 +98,8 @@ function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&l
 function safeImage(s){return /^https?:\/\//i.test(s)||/^data:image\/(jpeg|png|webp);base64,/i.test(s)}
 function resetForm(){
  editId=null;existingImage="";$("formTitle").textContent="Добавить товар";
- ["name","price","desc","imageUrl","photo"].forEach(id=>$(id).value="");
- $("availability").value="unknown";$("preview").style.display="none";$("progress").textContent="";
+ ["name","price","oldPrice","desc","imageUrl","photo"].forEach(id=>$(id).value="");
+ $("availability").value="unknown";updateDiscountPreview();$("preview").style.display="none";$("progress").textContent="";
  if(previewURL){URL.revokeObjectURL(previewURL);previewURL=""}
 }
 $("newBtn").onclick=resetForm;
@@ -127,6 +127,9 @@ async function uploadPhoto(file){
   throw new Error("Не удалось уменьшить фото. Выберите другое изображение.");
  }finally{URL.revokeObjectURL(url)}
 }
+function validOldPrice(raw,price){if(String(raw).trim()==='')return null;const n=Number(raw);if(!Number.isFinite(n)||n<=price||price<=0)throw new Error('Прежняя цена должна быть больше текущей, а текущая цена — больше нуля.');return n}
+function updateDiscountPreview(){try{const old=validOldPrice($("oldPrice").value,Number($("price").value));$("discountPreview").textContent=old===null?'Оставьте пустым, если скидки нет.':'Скидка −'+((old-Number($("price").value))/old*100).toLocaleString('ru-RU',{maximumFractionDigits:1})+'% • Экономия '+(old-Number($("price").value)).toLocaleString('ru-RU',{maximumFractionDigits:2})+' сомони';}catch(e){$("discountPreview").textContent=e.message}}
+$("price").addEventListener('input',updateDiscountPreview);$("oldPrice").addEventListener('input',updateDiscountPreview);
 function availabilityValue(value){return ['in_stock','out_of_stock','on_order'].includes(value)?value:'unknown'}
 function availabilityText(value){return {in_stock:'В наличии / Дар анбор ҳаст',out_of_stock:'Нет в наличии / Тамом шуд',on_order:'Под заказ / Бо фармоиш',unknown:'Наличие уточняется / Мавҷудиятро пурсед'}[availabilityValue(value)]}
 function renderList(){
@@ -135,7 +138,7 @@ function renderList(){
  document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{
   const p=products.find(p=>p.id===b.dataset.edit);if(!p)return;
   resetForm();editId=p.id;existingImage=p.image||"";$("formTitle").textContent="Изменить товар";
-  ["name","price","category","desc"].forEach(id=>$(id).value=p[id]??"");$("availability").value=availabilityValue(p.availability);
+  ["name","price","oldPrice","category","desc"].forEach(id=>$(id).value=p[id]??"");$("availability").value=availabilityValue(p.availability);updateDiscountPreview();
   if(safeImage(existingImage)){$("preview").src=existingImage;$("preview").style.display="block"}
   $("adminBox").scrollIntoView({behavior:"smooth"});
  });
@@ -153,6 +156,7 @@ $("saveBtn").onclick=async()=>{
  if(!Number.isFinite(price)||price<0){msg("status","Укажите корректную цену или оставьте поле пустым.");return}
  if(name.length>200||desc.length>20000){msg("status","Название до 200 знаков, описание до 20 000.");return}
  if(!name){msg("status","Введите название товара.");return}
+ let oldPrice;try{oldPrice=validOldPrice($("oldPrice").value,price)}catch(e){msg("status",e.message);return}
  if(!auth.currentUser){msg("status","Сначала войдите в аккаунт администратора.");return}
  $("saveBtn").disabled=true;$("saveBtn").textContent="Сохраняем...";
  try{
@@ -160,7 +164,7 @@ $("saveBtn").onclick=async()=>{
    if(image&&!safeImage(image))throw new Error("Укажите ссылку https:// на фото.");
    const file=$("photo").files[0];
    if(file) image=await uploadPhoto(file);
-   const data={name,price,category,desc,image,availability:availabilityValue($("availability").value),updatedAt:serverTimestamp()};
+   const data={name,price,oldPrice,category,desc,image,availability:availabilityValue($("availability").value),updatedAt:serverTimestamp()};
    if(editId)await updateDoc(doc(db,"products",editId),data);
    else await addDoc(collection(db,"products"),{...data,createdAt:serverTimestamp()});
    msg("status","✓ Товар сохранён и появится в каталоге.",true);resetForm();
@@ -176,4 +180,5 @@ $("saveBtn").onclick=async()=>{
 </script>
 </body>
 </html>
+
 
