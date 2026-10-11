@@ -31,6 +31,7 @@ textarea{min-height:140px;resize:vertical}.btn{border:0;background:#1677df;color
 </section>
 
 <section class="card" id="ordersBox" style="display:none"><h2 id="ordersTitle">Заказы</h2><select id="orderFilter" aria-label="Статус заказов"><option value="active">Текущие (не выполненные)</option><option value="all">Все заказы</option></select><div id="orderList" class="small" style="margin-top:12px">Загрузка…</div></section>
+<section class="card" id="alertsBox" style="display:none"><h2 id="alertsTitle">Ждут поступления</h2><div class="small">Покупатели просили сообщить, когда товар снова будет в наличии. Когда товар поступит, нажмите «Написать в WhatsApp», затем «✓ Уведомлён».</div><select id="alertFilter" aria-label="Статус" style="margin-top:10px"><option value="waiting">Ждут</option><option value="notified">Уведомлены</option></select><div id="alertList" style="margin-top:12px">Загрузка…</div></section>
 <section class="card" id="reviewsBox" style="display:none"><h2 id="reviewsTitle">Отзывы</h2><select id="reviewFilter" aria-label="Статус отзывов"><option value="pending">Ждут проверки</option><option value="approved">Опубликованные</option></select><div id="reviewList" class="small" style="margin-top:12px">Загрузка…</div></section>
 <section class="card" id="adminBox" style="display:none">
 <div class="row"><div><h2 id="formTitle">Добавить товар</h2><div class="small" id="userEmail"></div></div><div><button class="secondary" id="logoutBtn">Выйти</button></div></div>
@@ -219,6 +220,27 @@ function renderReviews(){
  });
 }
 $("reviewFilter").onchange=renderReviews;
+let alerts=[], stopAlerts=null;
+function alertMessage(a,p){const link="https://evrostarshop.com/?product="+encodeURIComponent(a.productId);const name=(a.lang==="ru"?p?.nameRu:"")||p?.name||a.productName;
+ return a.lang==="ru"?`Здравствуйте, ${a.name}! Товар «${name}» снова в наличии в EVROSTAR: ${link}`:`Салом, ${a.name}! Моли «${name}» боз дар EVROSTAR ҳаст: ${link}`}
+function renderAlerts(){
+ const want=$("alertFilter").value, list=alerts.filter(a=>(a.status||"waiting")===want);
+ const ready=alerts.filter(a=>(a.status||"waiting")==="waiting"&&products.find(p=>p.id===a.productId)?.availability==="in_stock").length;
+ const waiting=alerts.filter(a=>(a.status||"waiting")==="waiting").length;
+ $("alertsTitle").textContent="Ждут поступления"+(waiting?" — "+waiting:"")+(ready?" · можно уведомить: "+ready:"");
+ const groups=new Map();list.forEach(a=>{if(!groups.has(a.productId))groups.set(a.productId,[]);groups.get(a.productId).push(a)});
+ $("alertList").innerHTML=[...groups].map(([pid,items])=>{const p=products.find(x=>x.id===pid);const inStock=p?.availability==="in_stock";
+  return `<div style="padding:12px 0;border-bottom:2px solid #e3e8ee"><b>${esc(p?.name||items[0].productName)}</b> <span class="small" style="font-weight:700;color:${inStock?"#126b34":"#a51d2d"}">${p?(inStock?"✓ сейчас в наличии — можно уведомить":esc(availabilityText(p.availability))):"товар удалён"}</span>`+
+  items.map(a=>{let digits=String(a.phone||"").replace(/\D/g,"");if(digits.length===9)digits="992"+digits;const d=a.createdAt?.toDate?.();
+   return `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:8px 0;font-size:15px"><div style="flex:1;min-width:160px">${esc(a.name)} · <a href="tel:+${esc(digits)}">${esc(a.phone)}</a><div class="small">${d?esc(d.toLocaleDateString("ru-RU")):""}${a.lang==="ru"?" · рус.":""}</div></div>
+    <a class="btn" style="width:auto;margin:0;padding:10px 12px;text-decoration:none;background:#18a957" target="_blank" rel="noopener" href="https://wa.me/${esc(digits)}?text=${encodeURIComponent(alertMessage(a,p))}">WhatsApp</a>
+    ${(a.status||"waiting")==="waiting"?`<button style="width:auto;padding:10px 12px" data-alert="${esc(a.id)}" data-act="notified">✓ Уведомлён</button>`:`<button style="width:auto;padding:10px 12px" data-alert="${esc(a.id)}" data-act="waiting">Вернуть</button>`}
+    <button class="danger" style="width:auto;padding:10px 12px;color:#fff;border:0" data-alert="${esc(a.id)}" data-act="delete">Удалить</button></div>`}).join("")+`</div>`}).join("")||(want==="waiting"?"Никто не ждёт поступления.":"Пока никого не уведомили.");
+ document.querySelectorAll("[data-alert]").forEach(b=>b.onclick=async()=>{const id=b.dataset.alert,act=b.dataset.act;
+  if(act==="delete"&&!confirm("Удалить эту запись?"))return;b.disabled=true;
+  try{act==="delete"?await deleteDoc(doc(db,"stockAlerts",id)):await updateDoc(doc(db,"stockAlerts",id),{status:act})}catch(e){alert("Не удалось: "+e.message);b.disabled=false}});
+}
+$("alertFilter").onchange=renderAlerts;
 let workItems=[], stopWorks=null, workEditId=null, workExistingImage="";
 const WORK_FIELDS=["workTitle","workTitleRu","workCity","workPower","workDesc","workDescRu"];
 function resetWorkForm(){workEditId=null;workExistingImage="";$("workFormTitle").textContent="Наши работы — добавить";[...WORK_FIELDS,"workPhoto"].forEach(id=>$(id).value="");$("workPreview").style.display="none";$("workProgress").textContent=""}
@@ -250,7 +272,9 @@ $("workSave").onclick=async()=>{
  finally{$("workSave").disabled=false;$("workSave").textContent="Сохранить работу"}
 };
 onAuthStateChanged(auth,user=>{
- $("listBox").style.display=user?"block":"none";$("photoBox").style.display=user?"block":"none";$("ordersBox").style.display=user?"block":"none";$("reviewsBox").style.display=user?"block":"none";$("worksBox").style.display=user?"block":"none";
+ $("listBox").style.display=user?"block":"none";$("photoBox").style.display=user?"block":"none";$("ordersBox").style.display=user?"block":"none";$("reviewsBox").style.display=user?"block":"none";$("alertsBox").style.display=user?"block":"none";
+ if(stopAlerts){stopAlerts();stopAlerts=null}alerts=[];
+ if(user)stopAlerts=onSnapshot(query(collection(db,"stockAlerts"),orderBy("createdAt","desc"),limit(500)),snap=>{alerts=snap.docs.map(d=>({...d.data(),id:d.id}));renderAlerts()},e=>{$("alertList").textContent="Не удалось прочитать список: "+e.message+(String(e.code||"").includes("permission")?"\nДобавьте в правила Firestore доступ к коллекции stockAlerts.":"")});$("worksBox").style.display=user?"block":"none";
  if(stopWorks){stopWorks();stopWorks=null}workItems=[];
  if(user)stopWorks=onSnapshot(collection(db,"projects"),snap=>{workItems=snap.docs.map(d=>({...d.data(),id:d.id})).sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));renderWorkList()},e=>{$("workList").textContent="Не удалось прочитать работы: "+e.message+(String(e.code||"").includes("permission")?"\nДобавьте в правила Firestore доступ к коллекциям projects и projectImages.":"")});
  if(stopReviews){stopReviews();stopReviews=null}reviews=[];
@@ -263,7 +287,7 @@ onAuthStateChanged(auth,user=>{
  },e=>{$("orderList").textContent="Не удалось прочитать заказы: "+e.message+(String(e.code||"").includes("permission")?"\nДобавьте в правила Firestore доступ к коллекции orders.":"")});
  if(stopList){stopList();stopList=null}products=[];resetForm();renderList();
  if(user)stopList=onSnapshot(collection(db,"products"),snap=>{
-  products=snap.docs.map(d=>({...d.data(),id:d.id}));renderList();
+  products=snap.docs.map(d=>({...d.data(),id:d.id}));renderList();if(typeof renderAlerts==="function"&&alerts.length)renderAlerts();
  },e=>{$("productList").textContent="Не удалось прочитать товары: "+e.message});
 });
 $("saveBtn").onclick=async()=>{
