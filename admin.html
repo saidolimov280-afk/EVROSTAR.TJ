@@ -61,6 +61,15 @@ textarea{min-height:140px;resize:vertical}.btn{border:0;background:#1677df;color
 <button class="btn" id="saveBtn">Сохранить товар</button><button class="secondary" id="newBtn">Новый товар / отменить редактирование</button>
 <div class="msg" id="status"></div>
 </section>
+<section class="card" id="worksBox" style="display:none"><h2 id="workFormTitle">Наши работы — добавить</h2><div class="small">Фото установленных систем. Показываются на главной странице сайта.</div>
+<label for="workTitle">Название (тоҷикӣ)</label><input id="workTitle" maxlength="120" placeholder="Например: Системаи 3,5 кВт барои хона">
+<label for="workTitleRu">Название на русском (необязательно)</label><input id="workTitleRu" maxlength="120" placeholder="Например: Система 3,5 кВт для дома">
+<div class="row"><div><label for="workCity">Город / Шаҳр</label><input id="workCity" maxlength="60" placeholder="Ҳисор"></div><div><label for="workPower">Мощность, кВт</label><input id="workPower" type="number" min="0" step="0.01" placeholder="3.5"></div></div>
+<label for="workDesc">Описание (тоҷикӣ)</label><textarea id="workDesc" maxlength="3000" placeholder="Панелҳо, инвертор, АКБ, натиҷа..."></textarea>
+<label for="workDescRu">Описание на русском (необязательно)</label><textarea id="workDescRu" maxlength="3000"></textarea>
+<label for="workPhoto">Фото</label><input id="workPhoto" type="file" accept="image/*"><img id="workPreview" alt="" style="display:none;width:100%;max-height:240px;object-fit:contain;margin-top:10px;border-radius:12px;background:#f5f5f5"><div class="progress" id="workProgress"></div>
+<button class="btn" id="workSave">Сохранить работу</button><button class="secondary" id="workNew">Новая работа / отменить</button><div class="msg" id="workStatus"></div>
+<div id="workList" style="margin-top:16px"></div></section>
 <section class="card" id="photoBox" style="display:none"><h2>Ускорить каталог</h2><div class="small">Делает маленькие копии фото для каталога. Полное фото сохраняется без изменений и открывается, когда покупатель нажимает на товар. Можно нажимать повторно.</div><button class="btn" id="optimizeBtn">Оптимизировать фото</button><div class="msg" id="optimizeStatus"></div></section>
 <section class="card" id="listBox" style="display:none"><h2>Мои товары</h2><input id="listSearch" placeholder="Найти товар"><div id="productList"></div></section></main>
 
@@ -113,8 +122,8 @@ $("photo").onchange=()=>{
  if(!/^image\/(jpeg|png|webp)$/i.test(f.type)||f.size>25*1024*1024){msg("status","Выберите JPG, PNG или WebP до 25 МБ.");$("photo").value="";return}
  previewURL=URL.createObjectURL(f);$("preview").src=previewURL;$("preview").style.display="block";
 };
-async function uploadPhoto(file){
- $("progress").textContent="Подготовка фото…";
+async function uploadPhoto(file,progressId="progress"){
+ $(progressId).textContent="Подготовка фото…";
  const url=URL.createObjectURL(file);
  try{
   const im=new Image();im.src=url;await im.decode();
@@ -125,7 +134,7 @@ async function uploadPhoto(file){
    canvas.width=Math.max(1,Math.round(im.naturalWidth*scale));canvas.height=Math.max(1,Math.round(im.naturalHeight*scale));
    const ctx=canvas.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(im,0,0,canvas.width,canvas.height);
    const data=canvas.toDataURL("image/jpeg",0.8);
-   if(data.length<450000){$("progress").textContent="Фото готово";return data}
+   if(data.length<450000){$(progressId).textContent="Фото готово";return data}
    side=Math.round(side*0.75);
   }
   throw new Error("Не удалось уменьшить фото. Выберите другое изображение.");
@@ -210,8 +219,40 @@ function renderReviews(){
  });
 }
 $("reviewFilter").onchange=renderReviews;
+let workItems=[], stopWorks=null, workEditId=null, workExistingImage="";
+const WORK_FIELDS=["workTitle","workTitleRu","workCity","workPower","workDesc","workDescRu"];
+function resetWorkForm(){workEditId=null;workExistingImage="";$("workFormTitle").textContent="Наши работы — добавить";[...WORK_FIELDS,"workPhoto"].forEach(id=>$(id).value="");$("workPreview").style.display="none";$("workProgress").textContent=""}
+$("workNew").onclick=resetWorkForm;
+$("workPhoto").onchange=()=>{const f=$("workPhoto").files[0];if(!f){$("workPreview").style.display="none";return}
+ if(!/^image\/(jpeg|png|webp)$/i.test(f.type)||f.size>25*1024*1024){msg("workStatus","Выберите JPG, PNG или WebP до 25 МБ.");$("workPhoto").value="";return}
+ $("workPreview").src=URL.createObjectURL(f);$("workPreview").style.display="block"};
+function renderWorkList(){
+ $("workList").innerHTML=workItems.map(w=>`<div style="display:flex;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid #ddd">${safeImage(w.image)?`<img src="${esc(w.image)}" alt="" style="width:72px;height:54px;object-fit:cover;border-radius:8px">`:""}<div style="flex:1"><b>${esc(w.title)}</b><div class="small">${esc([w.city,Number(w.power)>0?w.power+" кВт":""].filter(Boolean).join(" · "))}</div></div><div style="display:grid;gap:6px;width:120px"><button data-work-edit="${esc(w.id)}" style="padding:8px">Изменить</button><button class="danger" style="color:#fff;border:0;padding:8px" data-work-del="${esc(w.id)}">Удалить</button></div></div>`).join("")||"<div class='small'>Работ пока нет.</div>";
+ document.querySelectorAll("[data-work-edit]").forEach(b=>b.onclick=()=>{const w=workItems.find(x=>x.id===b.dataset.workEdit);if(!w)return;resetWorkForm();workEditId=w.id;workExistingImage=w.image||"";$("workFormTitle").textContent="Наши работы — изменить";
+  $("workTitle").value=w.title||"";$("workTitleRu").value=w.titleRu||"";$("workCity").value=w.city||"";$("workPower").value=w.power??"";$("workDesc").value=w.desc||"";$("workDescRu").value=w.descRu||"";
+  if(safeImage(workExistingImage)){$("workPreview").src=workExistingImage;$("workPreview").style.display="block"}$("worksBox").scrollIntoView({behavior:"smooth"})});
+ document.querySelectorAll("[data-work-del]").forEach(b=>b.onclick=async()=>{if(!confirm("Удалить эту работу с сайта?"))return;b.disabled=true;
+  try{await deleteDoc(doc(db,"projects",b.dataset.workDel));await deleteDoc(doc(db,"projectImages",b.dataset.workDel)).catch(()=>{});if(workEditId===b.dataset.workDel)resetWorkForm()}catch(e){alert("Не удалось удалить: "+e.message);b.disabled=false}});
+}
+$("workSave").onclick=async()=>{
+ const title=$("workTitle").value.trim(),titleRu=$("workTitleRu").value.trim(),city=$("workCity").value.trim(),power=$("workPower").value.trim()===""?0:Number($("workPower").value),desc=$("workDesc").value.trim(),descRu=$("workDescRu").value.trim(),file=$("workPhoto").files[0];
+ if(!title){msg("workStatus","Введите название.");return}
+ if(!Number.isFinite(power)||power<0){msg("workStatus","Укажите мощность числом или оставьте пустым.");return}
+ if(!file&&!workExistingImage){msg("workStatus","Добавьте фото работы.");return}
+ $("workSave").disabled=true;$("workSave").textContent="Сохраняем...";
+ try{
+  const id=workEditId||doc(collection(db,"projects")).id;let image=workExistingImage;
+  if(file){const full=await uploadPhoto(file,"workProgress");image=await makeThumb(full);await setDoc(doc(db,"projectImages",id),{image:full,updatedAt:serverTimestamp()})}
+  const data={title,titleRu,city,power,desc,descRu,image,updatedAt:serverTimestamp()};
+  if(workEditId)await updateDoc(doc(db,"projects",id),data);else await setDoc(doc(db,"projects",id),{...data,createdAt:serverTimestamp()});
+  msg("workStatus","✓ Работа сохранена и появится на главной странице.",true);resetWorkForm();
+ }catch(e){console.error(e);msg("workStatus","Ошибка: "+e.message)}
+ finally{$("workSave").disabled=false;$("workSave").textContent="Сохранить работу"}
+};
 onAuthStateChanged(auth,user=>{
- $("listBox").style.display=user?"block":"none";$("photoBox").style.display=user?"block":"none";$("ordersBox").style.display=user?"block":"none";$("reviewsBox").style.display=user?"block":"none";
+ $("listBox").style.display=user?"block":"none";$("photoBox").style.display=user?"block":"none";$("ordersBox").style.display=user?"block":"none";$("reviewsBox").style.display=user?"block":"none";$("worksBox").style.display=user?"block":"none";
+ if(stopWorks){stopWorks();stopWorks=null}workItems=[];
+ if(user)stopWorks=onSnapshot(collection(db,"projects"),snap=>{workItems=snap.docs.map(d=>({...d.data(),id:d.id})).sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));renderWorkList()},e=>{$("workList").textContent="Не удалось прочитать работы: "+e.message+(String(e.code||"").includes("permission")?"\nДобавьте в правила Firestore доступ к коллекциям projects и projectImages.":"")});
  if(stopReviews){stopReviews();stopReviews=null}reviews=[];
  if(user)stopReviews=onSnapshot(query(collection(db,"reviews"),orderBy("createdAt","desc"),limit(300)),snap=>{
   reviews=snap.docs.map(d=>({...d.data(),id:d.id}));renderReviews();
