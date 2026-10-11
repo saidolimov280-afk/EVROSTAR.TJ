@@ -167,6 +167,11 @@ $("saveBtn").onclick=async()=>{
    const file=$("photo").files[0];
    if(file) image=await uploadPhoto(file);
    const data={name,nameRu,price,oldPrice,category,desc,descRu,image,availability:availabilityValue($("availability").value),updatedAt:serverTimestamp()};
+   // Send the Russian fields only when they are filled in (or are being cleared),
+   // so saving still works if the database rules do not allow them yet.
+   const current=editId?products.find(p=>p.id===editId):null;
+   if(!nameRu&&!current?.nameRu)delete data.nameRu;
+   if(!descRu&&!current?.descRu)delete data.descRu;
    if(editId)await updateDoc(doc(db,"products",editId),data);
    else await addDoc(collection(db,"products"),{...data,createdAt:serverTimestamp()});
    msg("status","✓ Товар сохранён и появится в каталоге.",true);resetForm();
