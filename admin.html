@@ -30,6 +30,7 @@ textarea{min-height:140px;resize:vertical}.btn{border:0;background:#1677df;color
 <div class="msg" id="loginStatus"></div>
 </section>
 
+<section class="card" id="ordersBox" style="display:none"><h2 id="ordersTitle">Заказы</h2><select id="orderFilter" aria-label="Статус заказов"><option value="active">Текущие (не выполненные)</option><option value="all">Все заказы</option></select><div id="orderList" class="small" style="margin-top:12px">Загрузка…</div></section>
 <section class="card" id="adminBox" style="display:none">
 <div class="row"><div><h2 id="formTitle">Добавить товар</h2><div class="small" id="userEmail"></div></div><div><button class="secondary" id="logoutBtn">Выйти</button></div></div>
 
@@ -65,7 +66,7 @@ textarea{min-height:140px;resize:vertical}.btn{border:0;background:#1677df;color
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getFirestore, collection, serverTimestamp, onSnapshot, doc, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getFirestore, collection, serverTimestamp, onSnapshot, doc, updateDoc, setDoc, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const firebaseConfig={
  apiKey: "AIzaSyA_zCecmxy5IYVzh2wESMDRZ_rZlFpWx6w",
@@ -158,8 +159,40 @@ function renderList(){
  });
 }
 $("listSearch").oninput=renderList;
+const ORDER_STATUS={new:"🆕 Новый",confirmed:"Подтверждён",paid:"Оплачен",shipped:"Отправлен",done:"✓ Выполнен",cancelled:"Отменён"};
+let orders=[], stopOrders=null;
+function orderDate(o){const d=o.createdAt?.toDate?.();return d?d.toLocaleString("ru-RU",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit",timeZone:"Asia/Dushanbe"}):"только что"}
+function renderOrders(){
+ const fresh=orders.filter(o=>(o.status||"new")==="new").length;
+ $("ordersTitle").textContent="Заказы"+(fresh?" — новых: "+fresh:"");
+ document.title=(fresh?"("+fresh+") ":"")+"EVROSTAR — Admin";
+ const list=$("orderFilter").value==="all"?orders:orders.filter(o=>!["done","cancelled"].includes(o.status));
+ $("orderList").innerHTML=list.map(o=>{
+  // Local Tajik numbers are 9 digits; add the country code for tel:/WhatsApp links.
+  let digits=String(o.phone||"").replace(/\D/g,"");if(digits.length===9)digits="992"+digits;
+  const status=ORDER_STATUS[o.status]?o.status:"new";
+  const items=(Array.isArray(o.items)?o.items:[]).map(x=>`<li>${esc(x.name)} × ${Number(x.qty)||0} — ${Number(x.price)>0?Number(x.price).toLocaleString("ru-RU")+" сомони":"цена по запросу"}</li>`).join("");
+  return `<div style="padding:14px 0;border-bottom:1px solid #ddd;color:#102033;font-size:15px${status==="new"?";background:#fffbe8":""}">
+   <b>№${esc(o.no||o.id.slice(0,6).toUpperCase())}</b> · ${esc(orderDate(o))}
+   <div style="margin:6px 0"><b>${esc(o.name)}</b> · <a href="tel:${esc(digits?"+"+digits:"")}">${esc(o.phone)}</a> · <a href="https://wa.me/${esc(digits)}" target="_blank" rel="noopener">WhatsApp</a></div>
+   <div class="small">${esc(o.address)}</div><ul style="margin:8px 0;padding-left:20px">${items}</ul>
+   <b>Итого: ${(Number(o.total)||0).toLocaleString("ru-RU")} сомони</b>
+   <select data-order="${esc(o.id)}" style="margin-top:8px">${Object.entries(ORDER_STATUS).map(([v,l])=>`<option value="${v}"${v===status?" selected":""}>${l}</option>`).join("")}</select></div>`;
+ }).join("")||"Заказов пока нет.";
+ document.querySelectorAll("[data-order]").forEach(s=>s.onchange=async()=>{
+  s.disabled=true;
+  try{await updateDoc(doc(db,"orders",s.dataset.order),{status:s.value,statusAt:serverTimestamp()})}
+  catch(e){alert("Не удалось изменить статус: "+e.message);renderOrders()}
+  finally{s.disabled=false}
+ });
+}
+$("orderFilter").onchange=renderOrders;
 onAuthStateChanged(auth,user=>{
- $("listBox").style.display=user?"block":"none";$("photoBox").style.display=user?"block":"none";
+ $("listBox").style.display=user?"block":"none";$("photoBox").style.display=user?"block":"none";$("ordersBox").style.display=user?"block":"none";
+ if(stopOrders){stopOrders();stopOrders=null}orders=[];
+ if(user)stopOrders=onSnapshot(query(collection(db,"orders"),orderBy("createdAt","desc"),limit(200)),snap=>{
+  orders=snap.docs.map(d=>({...d.data(),id:d.id}));renderOrders();
+ },e=>{$("orderList").textContent="Не удалось прочитать заказы: "+e.message+(String(e.code||"").includes("permission")?"\nДобавьте в правила Firestore доступ к коллекции orders.":"")});
  if(stopList){stopList();stopList=null}products=[];resetForm();renderList();
  if(user)stopList=onSnapshot(collection(db,"products"),snap=>{
   products=snap.docs.map(d=>({...d.data(),id:d.id}));renderList();
