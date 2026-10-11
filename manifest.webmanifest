@@ -2,8 +2,8 @@
   "id": "/",
   "name": "EVROSTAR",
   "short_name": "EVROSTAR",
-  "lang": "ru",
-  "description": "Каталог EVROSTAR и заказы через WhatsApp",
+  "lang": "tg",
+  "description": "Каталоги EVROSTAR ва фармоиш тавассути WhatsApp",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -13,12 +13,14 @@
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }
