@@ -1,0 +1,28 @@
+name: Update product list for Google
+on:
+  schedule:
+    - cron: '7 1 * * *'   # every day ~06:07 Dushanbe time
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: seo-products
+  cancel-in-progress: false
+jobs:
+  seo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Build product list from Firestore
+        run: node scripts/build-seo.mjs
+      - name: Commit if changed
+        run: |
+          if git diff --quiet; then echo "No changes"; exit 0; fi
+          git config user.name "evrostar-bot"
+          git config user.email "evrostar-bot@users.noreply.github.com"
+          git add index.html sitemap.xml
+          git commit -m "Update product list for search engines"
+          git push
