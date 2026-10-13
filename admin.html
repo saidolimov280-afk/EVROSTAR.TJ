@@ -194,7 +194,7 @@ function renderOrders(){
  }).join("")||"Заказов пока нет.";
  document.querySelectorAll("[data-order]").forEach(s=>s.onchange=async()=>{
   s.disabled=true;
-  try{await updateDoc(doc(db,"orders",s.dataset.order),{status:s.value,statusAt:serverTimestamp()})}
+  try{await updateDoc(doc(db,"orders",s.dataset.order),{status:s.value,statusAt:serverTimestamp()});setDoc(doc(db,"orderStatus",s.dataset.order),{status:s.value,statusAt:serverTimestamp()},{merge:true}).catch(e=>console.warn("orderStatus",e))}
   catch(e){alert("Не удалось изменить статус: "+e.message);renderOrders()}
   finally{s.disabled=false}
  });
