@@ -1,0 +1,16 @@
+name: probe
+on:
+  push:
+    branches: [rules-probe]
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          B="https://firestore.googleapis.com/v1/projects/evrostar-c7c85/databases/(default)/documents"
+          K="key=AIzaSyA_zCecmxy5IYVzh2wESMDRZ_rZlFpWx6w"
+          for c in orders orderStatus stockAlerts; do
+            code=$(curl -s -o /tmp/r -w '%{http_code}' "$B/$c/zz_probe_none?$K"); echo "GET $c/x -> $code $(grep -o '"status": "[A-Z_]*"' /tmp/r)"
+          done
+          code=$(curl -s -o /tmp/r -w '%{http_code}' "$B/orderStatus?pageSize=1&$K"); echo "LIST orderStatus -> $code $(grep -o '"status": "[A-Z_]*"' /tmp/r)"
+          code=$(curl -s -o /tmp/r -w '%{http_code}' "$B/orders?pageSize=1&mask.fieldPaths=no&$K"); echo "LIST orders -> $code $(grep -o '"status": "[A-Z_]*"' /tmp/r)"
