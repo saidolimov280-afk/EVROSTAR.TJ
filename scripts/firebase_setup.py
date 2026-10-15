@@ -9,12 +9,28 @@ from google.auth.transport.requests import AuthorizedSession
 PROJECT = 'evrostar-c7c85'
 DOMAINS = ['evrostarshop.com', 'www.evrostarshop.com']
 TEST_NUMBERS = {'+992900000001': '123456'}
-creds, _ = google.auth.default(scopes=['https://www.googleapis.com/auth/cloud-platform', 'https://www.googleapis.com/auth/firebase'])
-s = AuthorizedSession(creds)
-ok = True
-
 def note(kind, title, msg):
     print(f'::{kind} title={title}::{str(msg)[:900]}')
+
+# Check the key file without printing secrets: only its type, project and whether the private key is there.
+kp = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS', '')
+try:
+    raw = open(kp, encoding='utf-8-sig').read().strip()
+    info = json.loads(raw)
+    note('notice', 'key-file', 'type=%s project=%s has_private_key=%s client=%s' % (
+        info.get('type'), info.get('project_id'), bool(info.get('private_key')), str(info.get('client_email', '')).split('@')[0]))
+    if info.get('type') != 'service_account' or not info.get('private_key'):
+        note('error', 'key-file', 'This is not a service account key (need "type": "service_account" with "private_key").'); sys.exit(1)
+    if info.get('project_id') != PROJECT:
+        note('warning', 'key-file', f'key is for project {info.get("project_id")}, expected {PROJECT}')
+except json.JSONDecodeError as e:
+    note('error', 'key-file', f'The secret is not valid JSON (position {e.pos}, length {len(raw)}). Copy the whole file text, from {{ to }}.'); sys.exit(1)
+try:
+    creds, _ = google.auth.default(scopes=['https://www.googleapis.com/auth/cloud-platform', 'https://www.googleapis.com/auth/firebase'])
+except Exception as e:
+    note('error', 'credentials', f'{type(e).__name__}: {e}'); sys.exit(1)
+s = AuthorizedSession(creds)
+ok = True
 
 # ---- 1. Firebase Auth config
 base = f'https://identitytoolkit.googleapis.com/admin/v2/projects/{PROJECT}/config'
