@@ -1,0 +1,21 @@
+name: Diag phone auth
+on:
+  push:
+    branches: [diag-phone]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe Firebase Auth (public web API key)
+        shell: bash
+        run: |
+          K=AIzaSyA_zCecmxy5IYVzh2wESMDRZ_rZlFpWx6w
+          H=(-H "Referer: https://evrostarshop.com/" -H "Origin: https://evrostarshop.com" -H "Content-Type: application/json")
+          a=$(curl -sS "${H[@]}" "https://www.googleapis.com/identitytoolkit/v3/relyingparty/getProjectConfig?key=$K" | tr -d '\n' | head -c 700)
+          echo "::warning title=projectConfig::$a"
+          b=$(curl -sS "${H[@]}" -X POST "https://identitytoolkit.googleapis.com/v1/accounts:sendVerificationCode?key=$K" -d '{"phoneNumber":"+992900000001"}' | tr -d '\n' | head -c 700)
+          echo "::warning title=sendCode-test-number::$b"
+          c=$(curl -sS "${H[@]}" "https://identitytoolkit.googleapis.com/v2/recaptchaConfig?key=$K&clientType=CLIENT_TYPE_WEB&version=RECAPTCHA_ENTERPRISE" | tr -d '\n' | head -c 700)
+          echo "::warning title=recaptchaConfig::$c"
