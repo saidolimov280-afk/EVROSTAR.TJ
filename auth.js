@@ -52,7 +52,9 @@ const T = {
   wait: { tg: 'Лутфан интизор шавед…', ru: 'Пожалуйста, подождите…' },
   myCode: { tg: 'Коди ман', ru: 'Мой код' },
   logout: { tg: 'Баромадан', ru: 'Выйти' },
-  other: { tg: 'Дигар', ru: 'Другое' }
+  other: { tg: 'Дигар', ru: 'Другое' },
+  captcha: { tg: 'Аввал «Я не робот»-ро қайд кунед.', ru: 'Сначала отметьте «Я не робот».' },
+  timeout: { tg: 'Ҷавоб наомад. Интернетро санҷед ва боз кӯшиш кунед.', ru: 'Нет ответа. Проверьте интернет и попробуйте ещё раз.' }
 };
 const tr = (k, vars = {}) => (T[k]?.[lang()] || T[k]?.tg || k).replace(/\{(\w+)\}/g, (_, v) => vars[v] ?? '');
 const CITIES = ['Ҳисор', 'Душанбе', 'Турсунзода', 'Шаҳринав', 'Ваҳдат', 'Рӯдакӣ', 'Бохтар', 'Кӯлоб', 'Хуҷанд', 'Истаравшан', 'Панҷакент', 'Хоруғ', 'Вахш', 'Данғара', 'Норак', 'Роғун', 'Файзобод'];
@@ -94,6 +96,8 @@ function css() {
 #evroGate .gCodeBox{font-size:30px;font-weight:900;letter-spacing:2px;text-align:center;background:#fff;color:#071b2c;border-radius:14px;padding:16px;margin:0 0 12px;border:3px dashed #ff9f1c}
 #evroGate .gSun{width:64px;height:64px;margin:0 auto 10px;display:block}
 #evroGate [hidden]{display:none!important}
+#evroGate .gCaptcha{min-height:78px;margin:0 0 12px;display:flex;justify-content:center;transform-origin:center}
+@media (max-width:340px){#evroGate .gCaptcha{transform:scale(.88)}}
 #evroCodeChip{position:fixed;left:14px;bottom:calc(88px + env(safe-area-inset-bottom));z-index:25;background:#071b2c;color:#fff;border:2px solid #ff9f1c;border-radius:999px;padding:8px 14px;font:700 14px Arial,sans-serif;box-shadow:0 6px 18px #0004;cursor:pointer}
 body.evroLocked{overflow:hidden}`;
   document.head.appendChild(s);
@@ -107,7 +111,7 @@ function start() {
   css();
   const app = getApps()[0] || initializeApp(cfg);
   auth = getAuth(app);
-  auth.languageCode = lang() === 'ru' ? 'ru' : 'tg';
+  auth.languageCode = 'ru';
   db = getFirestore(app);
   onAuthStateChanged(auth, async user => {
     if (!user) { window.evroCustomer = null; if (!skippedRecently()) showGate('phone'); return; }
@@ -132,6 +136,7 @@ function build() {
   <form id="gPhoneStep"><h2 id="gTitle">${tr('title')}</h2><p>${tr('phoneLead')}</p>
    <label for="gPhone">${tr('phone')}</label>
    <div class="gRow"><span class="gPre">+992</span><input id="gPhone" type="tel" inputmode="numeric" autocomplete="tel-national" maxlength="12" placeholder="00 000 0000" required></div>
+   <div id="gRecaptcha" class="gCaptcha"></div>
    <p class="gErr" id="gErr1" role="alert"></p><button class="gMain" id="gSend" type="submit">${tr('send')}</button>
    <button class="gLink" id="gSkip" type="button" hidden>${tr('skip')}</button></form>
   <form id="gCodeStep" hidden><h2>${tr('code')}</h2><p id="gCodeLead"></p>
@@ -145,7 +150,7 @@ function build() {
    <p class="gErr" id="gErr3" role="alert"></p><button class="gMain" id="gFinish" type="submit">${tr('finish')}</button></form>
   <div id="gDoneStep" hidden><h2>${tr('doneTitle')}</h2><p>${tr('doneLead')}</p><div class="gCodeBox" id="gMyCode"></div>
    <button class="gLink" id="gCopy" type="button">${tr('copy')}</button><button class="gMain" id="gToShop" type="button">${tr('toShop')}</button></div>
-  <div id="gRecaptcha"></div></div></div>`);
+  </div></div>`);
   document.body.appendChild(gate);
   const $ = id => gate.querySelector('#' + id);
   $('gPhone').addEventListener('input', e => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 9); });
@@ -154,8 +159,8 @@ function build() {
   $('gPhoneStep').addEventListener('submit', sendCode);
   $('gCodeStep').addEventListener('submit', verifyCode);
   $('gProfileStep').addEventListener('submit', saveProfile);
-  $('gResend').addEventListener('click', () => sendCode());
-  $('gChange').addEventListener('click', () => showGate('phone'));
+  $('gResend').addEventListener('click', () => { showGate('phone'); renderCaptcha(); });
+  $('gChange').addEventListener('click', () => { showGate('phone'); renderCaptcha(); });
   $('gSkip').addEventListener('click', () => { try { localStorage.setItem(SKIP_KEY, String(Date.now())); } catch {} hideGate(); });
   $('gCopy').addEventListener('click', () => { const c = $('gMyCode').textContent; navigator.clipboard?.writeText(c).then(() => { $('gCopy').textContent = tr('copied'); }).catch(() => {}); });
   $('gToShop').addEventListener('click', () => hideGate());
@@ -178,6 +183,7 @@ function showGate(step) {
   for (const id of ['gPhoneStep', 'gCodeStep', 'gProfileStep', 'gDoneStep']) gate.querySelector('#' + id).hidden = true;
   const map = { phone: 'gPhoneStep', code: 'gCodeStep', profile: 'gProfileStep', done: 'gDoneStep' };
   gate.querySelector('#' + map[step]).hidden = false;
+  if (step === 'phone' && !recaptcha) renderCaptcha();
   const focus = { phone: 'gPhone', code: 'gCode', profile: 'gName' }[step];
   if (focus) setTimeout(() => gate.querySelector('#' + focus)?.focus(), 50);
 }
@@ -199,27 +205,51 @@ function setupProblem(e) {
   return /operation-not-allowed|billing-not-enabled|unauthorized-domain|invalid-app-credential|captcha-check-failed|app-not-authorized|internal-error|admin-restricted|argument-error/.test(c);
 }
 
+let captchaOk = false;
+// Visible "I'm not a robot" checkbox: the invisible one can stall silently inside in-app browsers and WebViews.
+function renderCaptcha() {
+  if (!gate) return;
+  try { recaptcha?.clear(); } catch {}
+  const box = gate.querySelector('#gRecaptcha');
+  box.innerHTML = '<div id="gRecaptchaInner"></div>';
+  captchaOk = false;
+  recaptcha = new RecaptchaVerifier(auth, 'gRecaptchaInner', {
+    size: 'normal',
+    callback: () => { captchaOk = true; gate.querySelector('#gErr1').textContent = ''; },
+    'expired-callback': () => { captchaOk = false; }
+  });
+  recaptcha.render().catch(e => { console.error('captcha', e); showError(gate.querySelector('#gErr1'), e); });
+}
+function withTimeout(p, ms) {
+  return Promise.race([p, new Promise((_, rej) => setTimeout(() => { const e = new Error('timeout'); e.code = 'evro/timeout'; rej(e); }, ms))]);
+}
+function showError(el, e, fallback) {
+  const c = String(e?.code || '');
+  let text = c === 'evro/timeout' ? tr('timeout') : errText(e) || (setupProblem(e) ? tr('unavailable') : (fallback || tr('net')));
+  if (c) text += ` (${c.replace(/^auth\//, '')})`;
+  el.textContent = text;
+  if (setupProblem(e)) gate.querySelector('#gSkip').hidden = false;
+}
+
 async function sendCode(ev) {
   ev?.preventDefault();
   const $ = id => gate.querySelector('#' + id);
   const digits = $('gPhone').value.replace(/\D/g, '');
   const err = $('gErr1'), btn = $('gSend');
-  if (!ev) { $('gResend').disabled = true; }
   if (digits.length !== 9) { err.textContent = tr('badPhone'); return; }
+  if (!recaptcha) renderCaptcha();
+  if (!captchaOk) { err.textContent = tr('captcha'); return; }
   fullPhone = '+992' + digits;
   err.textContent = ''; btn.disabled = true; btn.textContent = tr('wait');
   try {
-    if (!recaptcha) recaptcha = new RecaptchaVerifier(auth, 'gRecaptcha', { size: 'invisible' });
-    confirmation = await signInWithPhoneNumber(auth, fullPhone, recaptcha);
+    confirmation = await withTimeout(signInWithPhoneNumber(auth, fullPhone, recaptcha), 30000);
     $('gCodeLead').textContent = tr('codeLead', { p: fullPhone });
     $('gCode').value = ''; $('gErr2').textContent = '';
     showGate('code'); countdown(60);
   } catch (e) {
     console.error('sendCode', e);
-    try { recaptcha?.clear(); } catch {} recaptcha = null; gate.querySelector('#gRecaptcha').innerHTML = '';
-    if (setupProblem(e)) { err.textContent = tr('unavailable'); $('gSkip').hidden = false; }
-    else err.textContent = errText(e) || tr('net');
-    if (!ev) showGate('phone');
+    showError(err, e);
+    renderCaptcha();
   } finally { btn.disabled = false; btn.textContent = tr('send'); }
 }
 
@@ -237,7 +267,7 @@ async function verifyCode(ev) {
   if (!/^\d{6}$/.test(code) || !confirmation) { err.textContent = tr('badCode'); return; }
   btn.disabled = true; btn.textContent = tr('wait'); err.textContent = '';
   try { await confirmation.confirm(code); /* onAuthStateChanged continues to the profile step */ }
-  catch (e) { console.error('verify', e); err.textContent = errText(e) || tr('badCode'); }
+  catch (e) { console.error('verify', e); showError(err, e, tr('badCode')); }
   finally { btn.disabled = false; btn.textContent = tr('verify'); }
 }
 

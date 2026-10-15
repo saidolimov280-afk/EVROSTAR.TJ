@@ -20,7 +20,7 @@ FAKE_AUTH = r"""
 const F=window.__FAKE||(window.__FAKE={});const subs=[];
 const auth={currentUser:F.user||null};
 export const getAuth=()=>auth;
-export class RecaptchaVerifier{clear(){}}
+export class RecaptchaVerifier{constructor(a,id,o){this.o=o||{}}render(){setTimeout(()=>{F.captchaRendered=(F.captchaRendered||0)+1;if(!F.captchaUnticked)this.o.callback&&this.o.callback()},5);return Promise.resolve(1)}clear(){}}
 export const onAuthStateChanged=(a,f)=>{subs.push(f);setTimeout(()=>f(auth.currentUser),10);return()=>{}};
 const emit=()=>subs.forEach(f=>f(auth.currentUser));
 export const signInWithPhoneNumber=async(a,phone)=>{F.sentTo=phone;return{confirm:async c=>{
@@ -81,6 +81,7 @@ async def test_app_registration(browser):
     check(await page.locator('#evroGate:visible').count() == 0, 'gate waits for the welcome video')
     await skip_intro(page)
     check(await page.locator('#gPhoneStep:visible').count() == 1, 'app shows phone step')
+    check(await page.evaluate('window.__FAKE.captchaRendered') >= 1, 'robot check shown on phone step')
     await page.fill('#gPhone', '12345')
     await page.click('#gSend')
     check('9' in await page.inner_text('#gErr1'), 'short number rejected')
@@ -112,6 +113,17 @@ async def test_app_registration(browser):
     check(await page.input_value('#customerName') == 'Алӣ Валиев', 'checkout name prefilled')
     check(await page.input_value('#customerPhone') == '+992900000001', 'checkout phone prefilled')
     check(not errors, 'no page errors in app: ' + '; '.join(errors[:3]))
+    await page.context.close()
+
+async def test_captcha_required(browser):
+    page, errors = await new_page(browser, APP_UA, '{captchaUnticked:true}')
+    await page.goto(BASE + '/index.html')
+    await skip_intro(page)
+    await page.fill('#gPhone', '900000001')
+    await page.click('#gSend')
+    await page.wait_for_timeout(200)
+    check('робот' in (await page.inner_text('#gErr1')).lower() and not await page.evaluate('window.__FAKE.sentTo'),
+          'code is not sent until the robot check is ticked')
     await page.context.close()
 
 async def test_returning_customer(browser):
@@ -183,7 +195,7 @@ async def main():
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     async with async_playwright() as p:
         browser = await p.chromium.launch()
-        for t in (test_app_registration, test_returning_customer, test_website_has_no_gate, test_admin):
+        for t in (test_app_registration, test_captcha_required, test_returning_customer, test_website_has_no_gate, test_admin):
             try:
                 await t(browser)
             except Exception as e:
