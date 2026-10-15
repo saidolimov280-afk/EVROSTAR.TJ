@@ -1,8 +1,39 @@
 plugins { id 'com.android.application' }
+
+// Release signing comes from CI secrets (never committed):
+//   UPLOAD_KEYSTORE_FILE     path to the PKCS12 upload keystore (decoded from the UPLOAD_KEYSTORE secret)
+//   UPLOAD_KEYSTORE_PASSWORD keystore and key password; key alias is "upload"
+// Without them the release build is simply unsigned (used to check that the project builds).
+def keystorePath = System.getenv('UPLOAD_KEYSTORE_FILE')
+def hasUploadKey = keystorePath != null && !keystorePath.isEmpty() && file(keystorePath).exists()
+
 android {
  namespace 'com.evrostar.shop'
  compileSdk 35
- defaultConfig { applicationId 'com.evrostar.shop'; minSdk 26; targetSdk 34; versionCode 3; versionName '1.1.1' }
- buildTypes { release { minifyEnabled false } }
+ defaultConfig {
+  applicationId 'com.evrostar.shop'
+  minSdk 26
+  targetSdk 35
+  // Google Play needs a higher versionCode for every upload; CI passes VERSION_CODE.
+  versionCode((System.getenv('VERSION_CODE') ?: '4') as Integer)
+  versionName '1.2.0'
+ }
+ signingConfigs {
+  if (hasUploadKey) {
+   release {
+    storeFile file(keystorePath)
+    storeType 'pkcs12'
+    storePassword System.getenv('UPLOAD_KEYSTORE_PASSWORD')
+    keyAlias 'upload'
+    keyPassword System.getenv('UPLOAD_KEYSTORE_PASSWORD')
+   }
+  }
+ }
+ buildTypes {
+  release {
+   minifyEnabled false
+   if (hasUploadKey) signingConfig signingConfigs.release
+  }
+ }
  compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
 }
