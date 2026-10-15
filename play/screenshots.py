@@ -10,7 +10,8 @@ async def shoot(browser, lang):
                                     user_agent='Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/126 Mobile Safari/537.36')
     await ctx.add_init_script(f"try{{localStorage.setItem('evrostar_language','{lang}')}}catch(e){{}}")
     page = await ctx.new_page()
-    await page.goto(URL, wait_until='networkidle')
+    await page.goto(URL, wait_until='domcontentloaded', timeout=60000)
+    await page.wait_for_timeout(4000)  # the shop keeps a live database connection, so 'networkidle' never comes
     try:
         await page.click('#entrySkip', timeout=4000)
     except Exception:
@@ -42,4 +43,8 @@ async def main():
         await b.close()
     print('\n'.join(sorted(os.listdir(OUT))))
 
-asyncio.run(main())
+try:
+    asyncio.run(main())
+except Exception as e:
+    print(f'::error::{type(e).__name__}: {str(e)[:500]}')
+    raise
