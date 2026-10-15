@@ -19,8 +19,8 @@ https://play.google.com/console → **Create developer account**.
 
 ## 2. Калиди имзо дар GitHub (як бор)
 GitHub → репозиторий → **Settings → Secrets and variables → Actions → New repository secret**:
-1. Name: `UPLOAD_KEYSTORE` → Secret: ҳамаи матни файли `UPLOAD_KEYSTORE.txt`
-2. Name: `UPLOAD_KEYSTORE_PASSWORD` → Secret: матни файли `UPLOAD_KEYSTORE_PASSWORD.txt`
+1. Калид худаш рамзгузоришуда дар репозиторий аст (`android/upload-key.jks.enc`) — танҳо парол лозим.
+2. Name: `UPLOAD_KEYSTORE_PASSWORD` → Secret: пароли 20-ҳарфа аз файли `UPLOAD_KEYSTORE_PASSWORD.txt` (худи матн, на номи файл)
 
 Баъд: **Actions → Google Play release → Run workflow**. Дар **Releases** файлҳои `EVROSTAR.aab` ва `EVROSTAR.apk` пайдо мешаванд.
 

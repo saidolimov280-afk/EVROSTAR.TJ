@@ -1,7 +1,7 @@
 plugins { id 'com.android.application' }
 
 // Release signing comes from CI secrets (never committed):
-//   UPLOAD_KEYSTORE_FILE     path to the PKCS12 upload keystore (decoded from the UPLOAD_KEYSTORE secret)
+//   UPLOAD_KEYSTORE_FILE     path to the PKCS12 upload keystore (decrypted from android/upload-key.jks.enc)
 //   UPLOAD_KEYSTORE_PASSWORD keystore and key password; key alias is "upload"
 // Without them the release build is simply unsigned (used to check that the project builds).
 def keystorePath = System.getenv('UPLOAD_KEYSTORE_FILE')

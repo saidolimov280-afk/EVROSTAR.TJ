@@ -1,6 +1,6 @@
 name: Google Play release
 # Run from GitHub → Actions → "Google Play release" → Run workflow.
-# Needs two repository secrets: UPLOAD_KEYSTORE (base64 of the .jks) and UPLOAD_KEYSTORE_PASSWORD.
+# Needs one repository secret: UPLOAD_KEYSTORE_PASSWORD (unlocks android/upload-key.jks.enc).
 # Output: a GitHub Release with EVROSTAR.aab (upload to Play Console) and EVROSTAR.apk (direct install).
 on:
   workflow_dispatch:
@@ -25,38 +25,28 @@ jobs:
           packages: 'platform-tools'
       - name: Install Android SDK packages
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
-      - name: Decode upload key
+      - name: Unlock upload key
         id: key
         env:
-          UPLOAD_KEYSTORE: ${{ secrets.UPLOAD_KEYSTORE }}
           UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.UPLOAD_KEYSTORE_PASSWORD }}
         run: |
-          if [ -z "$UPLOAD_KEYSTORE" ]; then
-            echo "::warning::Secrets UPLOAD_KEYSTORE / UPLOAD_KEYSTORE_PASSWORD are not set — building unsigned files only."
+          # The upload keystore is committed encrypted (android/upload-key.jks.enc, AES-256, PBKDF2).
+          # Only its password is a secret: UPLOAD_KEYSTORE_PASSWORD (20 characters).
+          pw=$(printf '%s' "$UPLOAD_KEYSTORE_PASSWORD" | tr -d '[:space:]')
+          if [ -z "$pw" ]; then
+            echo "::warning::Secret UPLOAD_KEYSTORE_PASSWORD is not set — building unsigned files only."
             echo "signed=false" >> "$GITHUB_OUTPUT"; exit 0
           fi
-          # Text copied on a phone may contain spaces/line breaks; drop them before decoding.
-          python3 - <<'PY'
-          import base64, os, re, sys
-          raw = re.sub(r'[^A-Za-z0-9+/=]', '', os.environ['UPLOAD_KEYSTORE'])
-          print(f'::notice title=keystore::base64 length {len(raw)} (expected 3552)')
-          raw += '=' * (-len(raw) % 4)
-          try:
-              data = base64.b64decode(raw)
-          except Exception as e:
-              print(f'::error title=keystore::not valid base64: {e}'); sys.exit(1)
-          open(os.path.join(os.environ['RUNNER_TEMP'], 'upload.jks'), 'wb').write(data)
-          print(f'::notice title=keystore::decoded {len(data)} bytes')
-          PY
-          pw=$(printf '%s' "$UPLOAD_KEYSTORE_PASSWORD" | tr -d '[:space:]')
           echo "::add-mask::$pw"
-          echo "UPLOAD_KEYSTORE_PASSWORD_CLEAN=$pw" >> "$GITHUB_ENV"
-          if ! keytool -list -keystore "$RUNNER_TEMP/upload.jks" -storetype pkcs12 -storepass "$pw" -alias upload >/dev/null 2>"$RUNNER_TEMP/kt.err"; then
-            echo "::error title=keystore::cannot open the keystore: $(head -c 300 "$RUNNER_TEMP/kt.err" | tr '\n' ' ')"; exit 1
+          echo "::notice title=keystore::password length ${#pw} (expected 20)"
+          if ! openssl enc -d -aes-256-cbc -pbkdf2 -iter 300000 -in android/upload-key.jks.enc -out "$RUNNER_TEMP/upload.jks" -pass "pass:$pw" 2>/dev/null \
+             || ! keytool -list -keystore "$RUNNER_TEMP/upload.jks" -storetype pkcs12 -storepass "$pw" -alias upload >/dev/null 2>&1; then
+            echo "::error title=keystore::wrong password in UPLOAD_KEYSTORE_PASSWORD"; exit 1
           fi
           fp=$(keytool -list -v -keystore "$RUNNER_TEMP/upload.jks" -storetype pkcs12 -storepass "$pw" -alias upload | grep 'SHA256:' | head -1)
           echo "::notice title=keystore::OK $fp"
           echo "UPLOAD_KEYSTORE_FILE=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"
+          echo "UPLOAD_KEYSTORE_PASSWORD_CLEAN=$pw" >> "$GITHUB_ENV"
           echo "signed=true" >> "$GITHUB_OUTPUT"
       - name: Build AAB and APK
         run: |
