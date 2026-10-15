@@ -37,4 +37,12 @@ jobs:
           distribution: temurin
           java-version: '21'
       - run: npm install --no-audit --no-fund --legacy-peer-deps
-      - run: npm test
+      - name: Run rules tests
+        shell: bash
+        run: |
+          set +e
+          npm test 2>&1 | tee out.txt
+          status=${PIPESTATUS[0]}
+          # Surface failures as annotations so they are visible without opening the log.
+          grep -nE "not ok|Error:|error:|FirebaseError|expected|✖" out.txt | head -10 | while IFS= read -r l; do echo "::error::${l:0:900}"; done
+          exit $status
