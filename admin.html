@@ -32,6 +32,7 @@ textarea{min-height:140px;resize:vertical}.btn{border:0;background:#1677df;color
 
 <section class="card" id="ordersBox" style="display:none"><h2 id="ordersTitle">Заказы</h2><select id="orderFilter" aria-label="Статус заказов"><option value="active">Текущие (не выполненные)</option><option value="all">Все заказы</option></select><div id="orderList" class="small" style="margin-top:12px">Загрузка…</div></section>
 <section class="card" id="alertsBox" style="display:none"><h2 id="alertsTitle">Ждут поступления</h2><div class="small">Покупатели просили сообщить, когда товар снова будет в наличии. Когда товар поступит, нажмите «Написать в WhatsApp», затем «✓ Уведомлён».</div><select id="alertFilter" aria-label="Статус" style="margin-top:10px"><option value="waiting">Ждут</option><option value="notified">Уведомлены</option></select><div id="alertList" style="margin-top:12px">Загрузка…</div></section>
+<section class="card" id="customersBox" style="display:none"><h2 id="customersTitle">Покупатели (регистрация по SMS)</h2><div class="small">Клиенты, подтвердившие номер в приложении. Код покупателя приходит в заказе WhatsApp — найдите его здесь, чтобы проверить клиента.</div><input id="customerSearch" type="search" placeholder="Поиск: код EVRO-…, телефон или имя" aria-label="Поиск покупателя" style="margin-top:10px"><div id="customerList" class="small" style="margin-top:12px">Загрузка…</div></section>
 <section class="card" id="reviewsBox" style="display:none"><h2 id="reviewsTitle">Отзывы</h2><select id="reviewFilter" aria-label="Статус отзывов"><option value="pending">Ждут проверки</option><option value="approved">Опубликованные</option></select><div id="reviewList" class="small" style="margin-top:12px">Загрузка…</div></section>
 <section class="card" id="adminBox" style="display:none">
 <div class="row"><div><h2 id="formTitle">Добавить товар</h2><div class="small" id="userEmail"></div></div><div><button class="secondary" id="logoutBtn">Выйти</button></div></div>
@@ -90,6 +91,13 @@ const firebaseConfig={
 };
 const app=initializeApp(firebaseConfig);
 const auth=getAuth(app), db=getFirestore(app);
+// Customers who registered by SMS in the app are also "signed in" on this domain.
+// Only an email/password account can open the admin panel (the Firestore rules check the admin UID).
+const isAdminUser=u=>!!(u&&u.email&&u.providerData.some(p=>p.providerId==="password"));
+const onAdminState=fn=>onAuthStateChanged(auth,u=>{
+ if(u&&!isAdminUser(u)){msg("loginStatus","Этот аккаунт — покупатель, а не администратор. Войдите с email и паролем администратора.");fn(null);return}
+ fn(u);
+});
 const $=id=>document.getElementById(id);
 function msg(id,text,ok=false){const e=$(id);e.style.display="block";e.textContent=text;e.style.background=ok?"#e8fff0":"#fff0f0";e.style.color=ok?"#126b34":"#a51d2d"}
 
@@ -100,7 +108,7 @@ $("loginBtn").onclick=async()=>{
  finally{$("loginBtn").disabled=false}
 };
 $("logoutBtn").onclick=()=>signOut(auth);
-onAuthStateChanged(auth,user=>{
+onAdminState(user=>{
  $("loginBox").style.display=user?"none":"block";
  $("adminBox").style.display=user?"block":"none";
  if(user)$("userEmail").textContent=user.email||"";
@@ -223,6 +231,15 @@ $("reviewFilter").onchange=renderReviews;
 let alerts=[], stopAlerts=null;
 function alertMessage(a,p){const link="https://evrostarshop.com/?product="+encodeURIComponent(a.productId);const name=(a.lang==="ru"?p?.nameRu:"")||p?.name||a.productName;
  return a.lang==="ru"?`Здравствуйте, ${a.name}! Товар «${name}» снова в наличии в EVROSTAR: ${link}`:`Салом, ${a.name}! Моли «${name}» боз дар EVROSTAR ҳаст: ${link}`}
+let customers=[],stopCustomers=null;
+function renderCustomers(){
+ const q=$("customerSearch").value.trim().toLowerCase(), qd=q.replace(/\D/g,"");
+ const list=customers.filter(c=>!q||String(c.code||"").toLowerCase().includes(q)||String(c.name||"").toLowerCase().includes(q)||(qd.length>=3&&String(c.phone||"").replace(/\D/g,"").includes(qd)));
+ $("customersTitle").textContent="Покупатели (регистрация по SMS)"+(customers.length?" — "+customers.length:"");
+ $("customerList").innerHTML=list.length?list.slice(0,300).map(c=>{const digits=String(c.phone||"").replace(/\D/g,"");const d=c.createdAt?.toDate?.();
+  return `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid #e3e8ee;font-size:15px"><div style="flex:1;min-width:180px"><b>${esc(c.name||"—")}</b> · <span style="font-family:monospace;font-weight:700">${esc(c.code||"")}</span><div class="small"><a href="tel:+${esc(digits)}">${esc(c.phone||"")}</a>${c.city?" · "+esc(c.city):""}${d?" · "+esc(d.toLocaleDateString("ru-RU")):""}</div></div><a class="btn" style="width:auto;margin:0;padding:10px 12px;text-decoration:none;background:#18a957" target="_blank" rel="noopener" href="https://wa.me/${esc(digits)}">WhatsApp</a></div>`}).join(""):(customers.length?"Ничего не найдено.":"Пока нет зарегистрированных покупателей.");
+}
+$("customerSearch").addEventListener("input",renderCustomers);
 function renderAlerts(){
  const want=$("alertFilter").value, list=alerts.filter(a=>(a.status||"waiting")===want);
  const ready=alerts.filter(a=>(a.status||"waiting")==="waiting"&&products.find(p=>p.id===a.productId)?.availability==="in_stock").length;
@@ -271,7 +288,7 @@ $("workSave").onclick=async()=>{
  }catch(e){console.error(e);msg("workStatus","Ошибка: "+e.message)}
  finally{$("workSave").disabled=false;$("workSave").textContent="Сохранить работу"}
 };
-onAuthStateChanged(auth,user=>{
+onAdminState(user=>{
  $("listBox").style.display=user?"block":"none";$("photoBox").style.display=user?"block":"none";$("ordersBox").style.display=user?"block":"none";$("reviewsBox").style.display=user?"block":"none";$("alertsBox").style.display=user?"block":"none";
  if(stopAlerts){stopAlerts();stopAlerts=null}alerts=[];
  if(user)stopAlerts=onSnapshot(query(collection(db,"stockAlerts"),orderBy("createdAt","desc"),limit(500)),snap=>{alerts=snap.docs.map(d=>({...d.data(),id:d.id}));renderAlerts()},e=>{$("alertList").textContent="Не удалось прочитать список: "+e.message+(String(e.code||"").includes("permission")?"\nДобавьте в правила Firestore доступ к коллекции stockAlerts.":"")});$("worksBox").style.display=user?"block":"none";
@@ -285,6 +302,11 @@ onAuthStateChanged(auth,user=>{
  if(user)stopOrders=onSnapshot(query(collection(db,"orders"),orderBy("createdAt","desc"),limit(200)),snap=>{
   orders=snap.docs.map(d=>({...d.data(),id:d.id}));renderOrders();
  },e=>{$("orderList").textContent="Не удалось прочитать заказы: "+e.message+(String(e.code||"").includes("permission")?"\nДобавьте в правила Firestore доступ к коллекции orders.":"")});
+ $("customersBox").style.display=user?"block":"none";
+ if(stopCustomers){stopCustomers();stopCustomers=null}customers=[];
+ if(user)stopCustomers=onSnapshot(query(collection(db,"customers"),orderBy("createdAt","desc"),limit(1000)),snap=>{
+  customers=snap.docs.map(d=>({...d.data(),id:d.id}));renderCustomers();
+ },e=>{$("customerList").textContent="Не удалось прочитать покупателей: "+e.message+(String(e.code||"").includes("permission")?"\nОпубликуйте правила из файла firestore.rules (с UID администратора).":"")});
  if(stopList){stopList();stopList=null}products=[];resetForm();renderList();
  if(user)stopList=onSnapshot(collection(db,"products"),snap=>{
   products=snap.docs.map(d=>({...d.data(),id:d.id}));renderList();if(typeof renderAlerts==="function"&&alerts.length)renderAlerts();

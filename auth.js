@@ -110,7 +110,7 @@ function start() {
   auth.languageCode = lang() === 'ru' ? 'ru' : 'tg';
   db = getFirestore(app);
   onAuthStateChanged(auth, async user => {
-    if (!user) { window.evroCustomer = null; showGate('phone'); return; }
+    if (!user) { window.evroCustomer = null; if (!skippedRecently()) showGate('phone'); return; }
     try {
       const snap = await getDoc(doc(db, 'customers', user.uid));
       if (snap.exists() && snap.data().name) { ready(snap.data()); hideGate(); }
@@ -156,11 +156,14 @@ function build() {
   $('gProfileStep').addEventListener('submit', saveProfile);
   $('gResend').addEventListener('click', () => sendCode());
   $('gChange').addEventListener('click', () => showGate('phone'));
-  $('gSkip').addEventListener('click', () => hideGate());
+  $('gSkip').addEventListener('click', () => { try { localStorage.setItem(SKIP_KEY, String(Date.now())); } catch {} hideGate(); });
   $('gCopy').addEventListener('click', () => { const c = $('gMyCode').textContent; navigator.clipboard?.writeText(c).then(() => { $('gCopy').textContent = tr('copied'); }).catch(() => {}); });
   $('gToShop').addEventListener('click', () => hideGate());
 }
 
+// When SMS is not available yet and the customer chose to continue, do not ask again for a day.
+const SKIP_KEY = 'evrostar_reg_skip';
+function skippedRecently() { try { return Date.now() - Number(localStorage.getItem(SKIP_KEY) || 0) < 864e5; } catch { return false; } }
 function splashOn() { return !!document.getElementById('welcomeSplash'); }
 let waiting = null;
 function showGate(step) {

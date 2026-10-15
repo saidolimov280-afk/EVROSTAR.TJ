@@ -1,47 +1,44 @@
-# Регистратсия бо SMS — танзими Firebase
+# Регистратсия бо SMS — танзими Firebase (тартиби дуруст)
 
 Барнома (APK ва PWA) аз мизоҷ рақами телефонро мепурсад, ба он SMS-код мефиристад,
 баъд ному шаҳрро мегирад ва **коди шахсии харидор** (`EVRO-XXXXXX`) медиҳад.
-Ин код дар паёми фармоиш дар WhatsApp худкор илова мешавад.
-Дар сайти оддӣ (браузер) регистратсия талаб карда намешавад — SEO вайрон намешавад.
+Код дар паёми фармоиш дар WhatsApp худкор илова мешавад ва дар `admin.html` → «Покупатели» дида мешавад.
+Дар сайти оддӣ (браузер, Instagram) регистратсия талаб карда намешавад — SEO вайрон намешавад.
 
-То ин қадамҳо иҷро нашаванд, барнома менависад «Регистратсия ҳоло дастрас нест»
-ва мизоҷ метавонад бе регистратсия харид кунад.
+> ⚠️ **Тартиб муҳим аст.** Аввал қоидаҳои Firestore (қадами 1), баъд SMS (қадами 2).
+> Агар SMS пеш аз қоидаҳо фаъол шавад ва қоидаҳои ҳозира танҳо `request.auth != null`-ро санҷанд,
+> ҳар мизоҷи регистратсияшуда метавонад молҳо ва фармоишҳоро тағйир диҳад.
 
-## 1. Воридшавӣ бо телефонро фаъол кунед
-Firebase Console → лоиҳаи **evrostar-c7c85** → **Authentication → Sign-in method → Add new provider → Phone → Enable → Save**.
+## 1. Қоидаҳои Firestore (амният)
+1. Firebase Console → лоиҳаи **evrostar-c7c85** → **Authentication → Users**.
+   «User UID»-и аккаунти админ (бо email)-ро нусха гиред.
+2. Файли [`firestore.rules`](firestore.rules)-ро кушоед, `PASTE_ADMIN_UID`-ро бо ин UID иваз кунед.
+3. **Firestore Database → Rules** → ҳамаи матнро бо ин файл иваз кунед → **Publish**.
+4. Санҷед: сайт молҳоро нишон медиҳад, фармоиш кор мекунад, `admin.html` фармоишҳо ва «Покупатели»-ро нишон медиҳад.
 
-## 2. Нақшаи Blaze
-SMS дар Firebase пулакӣ аст: **Upgrade → Blaze** (пардохт барои ҳар SMS).
-Дар **Google Cloud → Billing → Budgets** маҳдудияти моҳона гузоред (масалан $10).
+Қоидаҳо дар GitHub Actions худкор санҷида мешаванд (`tests/rules`).
 
-## 3. Тоҷикистонро иҷозат диҳед
-**Authentication → Settings → SMS region policy → Allow → Tajikistan (+992)**.
-Ҳамаи кишварҳои дигарро бандед — ин аз сӯиистифода ва хароҷоти зиёд муҳофизат мекунад.
+## 2. Воридшавӣ бо телефон
+**Authentication → Sign-in method → Add new provider → Phone → Enable → Save**.
 
-## 4. Домен
-**Authentication → Settings → Authorized domains**: `evrostarshop.com` ва `www.evrostarshop.com` бояд бошанд.
+## 3. Нақшаи Blaze ва буҷет
+SMS пулакӣ аст: **Upgrade → Blaze**. Дар **Google Cloud → Billing → Budgets & alerts** буҷети моҳона гузоред (масалан $10).
 
-## 5. Қоидаи Firestore барои мизоҷон
-**Firestore → Rules**: ба қоидаҳои мавҷуда ин блокро дар дохили `match /databases/{database}/documents { ... }` илова кунед:
+## 4. Танҳо Тоҷикистон
+**Authentication → Settings → SMS region policy → Allow only → Tajikistan (+992)**.
+Ин аз сӯиистифода (SMS pumping) ва хароҷоти зиёд муҳофизат мекунад.
 
-```
-match /customers/{uid} {
-  allow read: if request.auth != null && request.auth.uid == uid;
-  allow create, update: if request.auth != null && request.auth.uid == uid
-    && request.resource.data.keys().hasOnly(['name','city','phone','code','lang','createdAt'])
-    && request.resource.data.name is string && request.resource.data.name.size() <= 100
-    && request.resource.data.phone == request.auth.token.phone_number;
-  allow delete: if false;
-}
-```
-
-Қоидаҳои дигарро нест накунед — танҳо ин блокро илова кунед → **Publish**.
+## 5. Домен
+**Authentication → Settings → Authorized domains**: `evrostarshop.com` ва `www.evrostarshop.com`.
 
 ## 6. Рақами санҷишӣ (ройгон)
-**Authentication → Sign-in method → Phone → Phone numbers for testing**:
-масалан `+992 900 000 001` → код `123456`. Бо ин рақам бе SMS-и пулакӣ санҷед.
+**Sign-in method → Phone → Phone numbers for testing**: `+992 900 000 001` → код `123456`.
+Бо ин рақам дар APK-и санҷишӣ тамоми роҳро гузаред, бе SMS-и пулакӣ.
 
-## 7. APK-и нав
-Барнома нишонаи `EVROSTARApp` мефиристад (версияи 1.1.0). Барои дидани регистратсия
-APK-и навро аз **Actions → Build EVROSTAR APK** гирифта, имзо кунед ва насб кунед.
+## 7. APK ва нашр
+1. APK-и санҷишӣ: GitHub → **Actions → Build EVROSTAR APK** → артефакти охирин → имзо → насб.
+2. Бо рақами санҷишӣ ва як рақами воқеӣ санҷед.
+3. Pull Request-ро merge кунед — сайт ва APK нав мешаванд.
+
+То қадамҳои 2–5 иҷро нашаванд, барнома менависад «Регистратсия ҳоло дастрас нест»
+ва мизоҷ метавонад бе регистратсия харид кунад — мағоза баста намешавад.
