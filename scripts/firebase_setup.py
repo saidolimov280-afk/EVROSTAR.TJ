@@ -16,7 +16,24 @@ def note(kind, title, msg):
 kp = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS', '')
 try:
     raw = open(kp, encoding='utf-8-sig').read().strip()
-    info = json.loads(raw)
+    try:
+        info = json.loads(raw)
+    except json.JSONDecodeError:
+        # Copying on a phone often loses the last characters (closing brace). Try small, safe repairs.
+        info = None
+        for tail in ('}', '"}', '\n}', '"\n}'):
+            try:
+                cand = json.loads(raw + tail)
+                if cand.get('type') == 'service_account' and cand.get('private_key'):
+                    info, raw = cand, raw + tail
+                    note('warning', 'key-file', f'secret was missing its last characters; repaired by adding {tail!r}')
+                    break
+            except json.JSONDecodeError:
+                pass
+        if info is None:
+            raise
+        with open(kp, 'w', encoding='utf-8') as f:
+            f.write(raw)
     note('notice', 'key-file', 'type=%s project=%s has_private_key=%s client=%s' % (
         info.get('type'), info.get('project_id'), bool(info.get('private_key')), str(info.get('client_email', '')).split('@')[0]))
     if info.get('type') != 'service_account' or not info.get('private_key'):
