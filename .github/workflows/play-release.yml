@@ -9,10 +9,10 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    env:
-      VERSION_CODE: ${{ 100 + github.run_number }}
     steps:
       - uses: actions/checkout@v4
+      - name: Version code (higher on every run)
+        run: echo "VERSION_CODE=$((100 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
