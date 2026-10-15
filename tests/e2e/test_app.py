@@ -20,10 +20,10 @@ FAKE_AUTH = r"""
 const F=window.__FAKE||(window.__FAKE={});const subs=[];
 const auth={currentUser:F.user||null};
 export const getAuth=()=>auth;
-export class RecaptchaVerifier{constructor(a,id,o){this.o=o||{}}render(){setTimeout(()=>{F.captchaRendered=(F.captchaRendered||0)+1;if(!F.captchaUnticked)this.o.callback&&this.o.callback()},5);return Promise.resolve(1)}clear(){}}
+export class RecaptchaVerifier{constructor(a,id,o){this.o=o||{};F.captchaSizes=(F.captchaSizes||[]).concat(this.o.size)}render(){setTimeout(()=>{F.captchaRendered=(F.captchaRendered||0)+1;if(!F.captchaUnticked)this.o.callback&&this.o.callback()},5);return Promise.resolve(1)}clear(){}}
 export const onAuthStateChanged=(a,f)=>{subs.push(f);setTimeout(()=>f(auth.currentUser),10);return()=>{}};
 const emit=()=>subs.forEach(f=>f(auth.currentUser));
-export const signInWithPhoneNumber=async(a,phone)=>{F.sentTo=phone;return{confirm:async c=>{
+export const signInWithPhoneNumber=async(a,phone,v)=>{if(F.failInvisible&&v.o.size==='invisible'){const e=new Error('captcha');e.code='auth/captcha-check-failed';throw e}F.sentTo=phone;return{confirm:async c=>{
   if(c!=='123456'){const e=new Error('bad');e.code='auth/invalid-verification-code';throw e}
   auth.currentUser={uid:'uidTEST1234567890',phoneNumber:phone,email:null,providerData:[{providerId:'phone'}]};emit()}}};
 export const signInWithEmailAndPassword=async()=>{auth.currentUser={uid:'admin',email:'admin@example.com',providerData:[{providerId:'password'}]};emit()};
@@ -84,7 +84,8 @@ async def test_app_registration(browser):
     check(await page.locator('#evroGate:visible').count() == 0, 'gate waits for the welcome video')
     await skip_intro(page)
     check(await page.locator('#gPhoneStep:visible').count() == 1, 'app shows phone step')
-    check(await page.evaluate('window.__FAKE.captchaRendered') >= 1, 'robot check shown on phone step')
+    check(await page.evaluate('window.__FAKE.captchaSizes[0]') == 'invisible' and await page.locator('#gRecaptcha.gCaptchaOn').count() == 0,
+          'no "I am not a robot" checkbox by default (invisible check)')
     await page.fill('#gPhone', '12345')
     await page.click('#gSend')
     check('9' in await page.inner_text('#gErr1'), 'short number rejected')
@@ -119,14 +120,17 @@ async def test_app_registration(browser):
     await page.context.close()
 
 async def test_captcha_required(browser):
-    page, errors = await new_page(browser, APP_UA, '{captchaUnticked:true}')
+    page, errors = await new_page(browser, APP_UA, '{failInvisible:true,captchaUnticked:true}')
     await page.goto(BASE + '/index.html')
     await skip_intro(page)
     await page.fill('#gPhone', '900000001')
     await page.click('#gSend')
+    await page.wait_for_timeout(300)
+    check(await page.locator('#gRecaptcha.gCaptchaOn').count() == 1 and 'робот' in (await page.inner_text('#gErr1')).lower(),
+          'if the invisible check fails, the checkbox appears')
+    await page.click('#gSend')
     await page.wait_for_timeout(200)
-    check('робот' in (await page.inner_text('#gErr1')).lower() and not await page.evaluate('window.__FAKE.sentTo'),
-          'code is not sent until the robot check is ticked')
+    check(not await page.evaluate('window.__FAKE.sentTo'), 'code is not sent until the checkbox is ticked')
     await page.context.close()
 
 async def test_account_page(browser):

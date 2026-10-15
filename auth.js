@@ -122,7 +122,7 @@ function css() {
 #evroGate [hidden]{display:none!important}
 #evroGate .gConsent{font-size:13px;margin:12px 0 0;text-align:center;color:#b9cad7}#evroGate .gConsent a{color:#ffd08a}
 #account .accDanger{background:#fde2e1;color:#a51d2d}#account .accLinks{margin:18px 0 0;text-align:center}#account .accLinks a{color:#b9cad7}
-#evroGate .gCaptcha{min-height:78px;margin:0 0 12px;display:flex;justify-content:center;transform-origin:center}
+#evroGate .gCaptcha{height:0;overflow:hidden;margin:0}#evroGate .gCaptcha.gCaptchaOn{height:auto;overflow:visible;min-height:78px;margin:0 0 12px;display:flex;justify-content:center;transform-origin:center}.grecaptcha-badge{visibility:hidden!important}#evroGate .gRc{font-size:11px;color:#8fa6b7;margin:6px 0 0;text-align:center}#evroGate .gRc a{color:#8fa6b7}
 @media (max-width:340px){#evroGate .gCaptcha{transform:scale(.88)}}
 #account .accCard{background:#fff;color:#142033;border-radius:18px;padding:18px;margin:0 0 14px;box-shadow:0 8px 25px #0002}
 #account .accCode{font:900 24px/1.2 Arial,sans-serif;letter-spacing:1px;margin:6px 0 4px}
@@ -176,7 +176,8 @@ function build() {
    <div id="gRecaptcha" class="gCaptcha"></div>
    <p class="gErr" id="gErr1" role="alert"></p><button class="gMain" id="gSend" type="submit">${tr('send')}</button>
    <button class="gLink" id="gSkip" type="button" hidden>${tr('skip')}</button>
-   <p class="gConsent">${tr('consent', { l: `<a href="/privacy.html#${lang() === 'ru' ? 'ru' : 'tg'}">${tr('consentLink')}</a>` })}</p></form>
+   <p class="gConsent">${tr('consent', { l: `<a href="/privacy.html#${lang() === 'ru' ? 'ru' : 'tg'}">${tr('consentLink')}</a>` })}</p>
+   <p class="gRc">This site is protected by reCAPTCHA and the Google <a href="https://policies.google.com/privacy">Privacy Policy</a> and <a href="https://policies.google.com/terms">Terms of Service</a> apply.</p></form>
   <form id="gCodeStep" hidden><h2>${tr('code')}</h2><p id="gCodeLead"></p>
    <label for="gCode">${tr('code')}</label><input id="gCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required>
    <p class="gErr" id="gErr2" role="alert"></p><button class="gMain" id="gVerify" type="submit">${tr('verify')}</button>
@@ -243,20 +244,20 @@ function setupProblem(e) {
   return /operation-not-allowed|billing-not-enabled|unauthorized-domain|invalid-app-credential|captcha-check-failed|app-not-authorized|internal-error|admin-restricted|argument-error/.test(c);
 }
 
-let captchaOk = false;
-// Visible "I'm not a robot" checkbox: the invisible one can stall silently inside in-app browsers and WebViews.
+let captchaOk = false, captchaMode = 'invisible';
+// Invisible check by default: the customer only types the phone number. If it fails or stalls
+// (some in-app browsers), fall back to the visible "I'm not a robot" checkbox.
 function renderCaptcha() {
   if (!gate) return;
   try { recaptcha?.clear(); } catch {}
   const box = gate.querySelector('#gRecaptcha');
   box.innerHTML = '<div id="gRecaptchaInner"></div>';
-  captchaOk = false;
-  recaptcha = new RecaptchaVerifier(auth, 'gRecaptchaInner', {
-    size: 'normal',
-    callback: () => { captchaOk = true; gate.querySelector('#gErr1').textContent = ''; },
-    'expired-callback': () => { captchaOk = false; }
-  });
-  recaptcha.render().catch(e => { console.error('captcha', e); showError(gate.querySelector('#gErr1'), e); });
+  box.classList.toggle('gCaptchaOn', captchaMode === 'normal');
+  captchaOk = captchaMode === 'invisible';
+  recaptcha = new RecaptchaVerifier(auth, 'gRecaptchaInner', captchaMode === 'invisible'
+    ? { size: 'invisible' }
+    : { size: 'normal', callback: () => { captchaOk = true; gate.querySelector('#gErr1').textContent = ''; }, 'expired-callback': () => { captchaOk = false; } });
+  recaptcha.render().catch(e => { console.error('captcha', e); if (captchaMode === 'invisible') { captchaMode = 'normal'; renderCaptcha(); } else showError(gate.querySelector('#gErr1'), e); });
 }
 function withTimeout(p, ms) {
   return Promise.race([p, new Promise((_, rej) => setTimeout(() => { const e = new Error('timeout'); e.code = 'evro/timeout'; rej(e); }, ms))]);
@@ -276,18 +277,21 @@ async function sendCode(ev) {
   const err = $('gErr1'), btn = $('gSend');
   if (digits.length !== 9) { err.textContent = tr('badPhone'); return; }
   if (!recaptcha) renderCaptcha();
-  if (!captchaOk) { err.textContent = tr('captcha'); return; }
+  if (captchaMode === 'normal' && !captchaOk) { err.textContent = tr('captcha'); return; }
   fullPhone = '+992' + digits;
   err.textContent = ''; btn.disabled = true; btn.textContent = tr('wait');
   try {
-    confirmation = await withTimeout(signInWithPhoneNumber(auth, fullPhone, recaptcha), 30000);
+    confirmation = await withTimeout(signInWithPhoneNumber(auth, fullPhone, recaptcha), captchaMode === 'invisible' ? 20000 : 30000);
     $('gCodeLead').textContent = tr('codeLead', { p: fullPhone });
     $('gCode').value = ''; $('gErr2').textContent = '';
     showGate('code'); countdown(60);
   } catch (e) {
     console.error('sendCode', e);
-    showError(err, e);
-    renderCaptcha();
+    const c = String(e?.code || '');
+    if (captchaMode === 'invisible' && /timeout|captcha|app-credential|internal-error/.test(c)) {
+      // Invisible check did not pass here: show the checkbox and ask to tick it.
+      captchaMode = 'normal'; renderCaptcha(); err.textContent = tr('captcha');
+    } else { showError(err, e); renderCaptcha(); }
   } finally { btn.disabled = false; btn.textContent = tr('send'); }
 }
 
