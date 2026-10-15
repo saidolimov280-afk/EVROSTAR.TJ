@@ -205,7 +205,7 @@ function build() {
 }
 
 // When SMS is not available yet and the customer chose to continue, do not ask again for a day.
-const SKIP_KEY = 'evrostar_reg_skip';
+const SKIP_KEY = 'evrostar_reg_skip2'; // v2: forget skips made while SMS was not set up yet
 function skippedRecently() { try { return Date.now() - Number(localStorage.getItem(SKIP_KEY) || 0) < 864e5; } catch { return false; } }
 function splashOn() { return !!document.getElementById('welcomeSplash'); }
 let waiting = null;
