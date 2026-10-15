@@ -22,7 +22,10 @@ async def shoot(browser, lang):
         await page.wait_for_timeout(1200)
         await page.screenshot(path=f'{OUT}/{lang}-{name}.png')
     await snap('1-home')
-    await page.evaluate("location.hash='#catalog'"); await snap('2-catalog')
+    await page.evaluate("location.hash='#catalog'"); await page.wait_for_timeout(1500)
+    # show the product cards, not just the search bar
+    await page.evaluate("(()=>{const el=document.querySelector('#products .productCard');if(el)window.scrollTo({top:el.getBoundingClientRect().top+scrollY-150,behavior:'instant'})})()")
+    await snap('2-catalog')
     try:
         await page.click('#products .productCard .details', timeout=5000)
         await page.wait_for_selector('#detail[open]', timeout=5000)
