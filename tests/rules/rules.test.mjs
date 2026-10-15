@@ -5,7 +5,7 @@ import { test, before, after, beforeEach } from 'node:test';
 import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebase/rules-unit-testing';
 import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, query, where } from 'firebase/firestore';
 
-const rules = readFileSync(new URL('../../firestore.rules', import.meta.url), 'utf8').replace("in ['PASTE_ADMIN_UID']", "in ['admin1']");
+const rules = readFileSync(new URL('../../firestore.rules', import.meta.url), 'utf8').replace(/request\.auth\.uid in \[[^\]]*\]/, "request.auth.uid in ['admin1']");
 let env;
 before(async () => {
   env = await initializeTestEnvironment({ projectId: 'demo-evrostar', firestore: { rules, host: '127.0.0.1', port: 8080 } });

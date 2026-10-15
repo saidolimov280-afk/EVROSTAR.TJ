@@ -7,14 +7,14 @@ rules_version = '2';
 // `request.auth != null` would let any customer change products and read all orders.
 // Admin rights must be tied to the admin account's UID.
 //
-// SETUP: Firebase Console → Authentication → Users → copy the "User UID" of the admin
-// (email) account and replace PASTE_ADMIN_UID below. Add more UIDs to the list if needed.
+// Admin UID below = the email admin account (Firebase Console → Authentication → Users).
+// To add another admin, add their "User UID" to the list.
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
     function isAdmin() {
-      return request.auth != null && request.auth.uid in ['PASTE_ADMIN_UID'];
+      return request.auth != null && request.auth.uid in ['jYPTfoRyy3N76rdP3ttKaHVzVEZ2'];
     }
     function smallText(v, max) { return v is string && v.size() <= max; }
 

@@ -10,10 +10,9 @@
 > ҳар мизоҷи регистратсияшуда метавонад молҳо ва фармоишҳоро тағйир диҳад.
 
 ## 1. Қоидаҳои Firestore (амният)
-1. Firebase Console → лоиҳаи **evrostar-c7c85** → **Authentication → Users**.
-   «User UID»-и аккаунти админ (бо email)-ро нусха гиред.
-2. Файли [`firestore.rules`](firestore.rules)-ро кушоед, `PASTE_ADMIN_UID`-ро бо ин UID иваз кунед.
-3. **Firestore Database → Rules** → ҳамаи матнро бо ин файл иваз кунед → **Publish**.
+1. UID-и админ аллакай дар [`firestore.rules`](firestore.rules) гузошта шудааст.
+2. Матнро аз https://raw.githubusercontent.com/saidolimov280-afk/EVROSTAR.TJ/main/firestore.rules нусха гиред.
+3. Firebase Console → **evrostar-c7c85** → **Firestore Database → Rules** → ҳамаи матнро иваз кунед → **Publish**.
 4. Санҷед: сайт молҳоро нишон медиҳад, фармоиш кор мекунад, `admin.html` фармоишҳо ва «Покупатели»-ро нишон медиҳад.
 
 Қоидаҳо дар GitHub Actions худкор санҷида мешаванд (`tests/rules`).
