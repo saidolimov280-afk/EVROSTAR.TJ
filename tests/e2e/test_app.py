@@ -28,6 +28,7 @@ export const signInWithPhoneNumber=async(a,phone)=>{F.sentTo=phone;return{confir
   auth.currentUser={uid:'uidTEST1234567890',phoneNumber:phone,email:null,providerData:[{providerId:'phone'}]};emit()}}};
 export const signInWithEmailAndPassword=async()=>{auth.currentUser={uid:'admin',email:'admin@example.com',providerData:[{providerId:'password'}]};emit()};
 export const signOut=async()=>{auth.currentUser=null;emit()};
+export const deleteUser=async()=>{F.deletedUser=true;auth.currentUser=null;emit()};
 """
 FAKE_FS = r"""
 const F=window.__FAKE||(window.__FAKE={});F.writes=F.writes||[];
@@ -39,7 +40,7 @@ const docs=n=>(F.data&&F.data[n]||[]).map((d,i)=>({id:d.id||String(i),data:()=>d
 export const onSnapshot=(q,ok)=>{setTimeout(()=>ok({docs:docs(q.name)}),20);return()=>{}};
 export const getDoc=async(r)=>{const d=(F.data&&F.data[r.name]||[]).find(x=>x.id===r.id);return{exists:()=>!!d,data:()=>d}};
 export const setDoc=async(r,v)=>{F.writes.push({col:r.name,id:r.id,v})};
-export const updateDoc=async()=>{};export const deleteDoc=async()=>{};export const addDoc=async()=>{};export const getDocs=async(q)=>({docs:docs(q.name).filter(d=>(q.w||[]).every(w=>d.data()[w.field]===w.val))});
+export const updateDoc=async()=>{};export const deleteDoc=async(r)=>{F.deletes=(F.deletes||[]).concat(r.name+'/'+r.id)};export const addDoc=async()=>{};export const getDocs=async(q)=>({docs:docs(q.name).filter(d=>(q.w||[]).every(w=>d.data()[w.field]===w.val))});
 """
 
 failures = []
@@ -147,6 +148,18 @@ async def test_account_page(browser):
     await page.wait_for_timeout(900)
     check(await page.locator('#evroCodeChip:visible').count() == 0, 'code chip hidden on account page')
     await page.screenshot(path='/tmp/claude-0/-home-claude-evrostar-tj/b52afe6b-1fc9-5b08-9122-35f54a10a685/scratchpad/account.png') if os.environ.get('EVRO_SHOTS') else None
+    check(await page.locator('#account a[href="/privacy.html"]').count() == 1, 'privacy link on account page')
+    await page.click('#accDeleteBtn')
+    check(not await page.evaluate('!!window.__FAKE.deletedUser'), 'first tap only asks to confirm deletion')
+    await page.click('#accDeleteBtn')
+    await page.wait_for_timeout(300)
+    check(await page.evaluate('!!window.__FAKE.deletedUser') and 'customers/uidTEST1234567890' in await page.evaluate('window.__FAKE.deletes||[]'),
+          'second tap deletes profile and account')
+    await page.context.close()
+    page, errors = await new_page(browser, APP_UA, fake)
+    await page.goto(BASE + '/index.html#account')
+    await skip_intro(page)
+    await page.wait_for_selector('#accLogoutBtn')
     await page.click('#accLogoutBtn')
     await page.wait_for_timeout(300)
     check(await page.locator('#evroCodeChip').count() == 0 and 'Ворид шудан' in await page.inner_text('#account'), 'logout clears the account')
@@ -178,6 +191,20 @@ async def test_returning_customer(browser):
     check('EVRO-ABCDEF' in text and '+992900000001' in text, 'WhatsApp order includes purchase code')
     ow = await page.evaluate('window.__FAKE.writes.filter(w=>w.col==="orders").map(w=>w.v)')
     check(bool(ow) and ow[-1].get('uid') == 'uidTEST1234567890' and ow[-1].get('customerCode') == 'EVRO-ABCDEF', 'order saved with customer uid and code')
+    await page.context.close()
+
+async def test_privacy_page(browser):
+    page, errors = await new_page(browser)
+    r = await page.goto(BASE + '/privacy.html')
+    txt = await page.inner_text('body')
+    check(r.ok and 'Сиёсати махфият' in txt and 'Политика конфиденциальности' in txt and 'Нест кардани аккаунт' in txt,
+          'privacy policy page (tg + ru, account deletion section)')
+    check(not errors, 'no page errors on privacy page')
+    await page.context.close()
+    page, errors = await new_page(browser, APP_UA)
+    await page.goto(BASE + '/index.html')
+    await skip_intro(page)
+    check(await page.locator('#evroGate .gConsent a[href^="/privacy.html"]').count() == 1, 'registration shows privacy consent link')
     await page.context.close()
 
 async def test_website_has_no_gate(browser):
@@ -226,7 +253,7 @@ async def main():
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     async with async_playwright() as p:
         browser = await p.chromium.launch()
-        for t in (test_app_registration, test_captcha_required, test_account_page, test_returning_customer, test_website_has_no_gate, test_admin):
+        for t in (test_app_registration, test_captcha_required, test_account_page, test_returning_customer, test_privacy_page, test_website_has_no_gate, test_admin):
             try:
                 await t(browser)
             except Exception as e:

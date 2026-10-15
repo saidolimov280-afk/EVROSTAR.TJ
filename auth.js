@@ -2,8 +2,8 @@
 // Shown only in the Android app and the installed PWA, not on the public website (keeps SEO intact).
 // Flow: phone → SMS code → name + city → personal purchase code (EVRO-XXXXXX).
 import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js';
-import { getAuth, RecaptchaVerifier, signInWithPhoneNumber, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js';
-import { getFirestore, doc, getDoc, setDoc, serverTimestamp, collection, query, where, limit, getDocs } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
+import { getAuth, RecaptchaVerifier, signInWithPhoneNumber, onAuthStateChanged, signOut, deleteUser } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js';
+import { getFirestore, doc, getDoc, setDoc, deleteDoc, serverTimestamp, collection, query, where, limit, getDocs } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
 
 const cfg = {
   apiKey: 'AIzaSyA_zCecmxy5IYVzh2wESMDRZ_rZlFpWx6w',
@@ -55,6 +55,13 @@ const T = {
   logout: { tg: 'Баромадан', ru: 'Выйти' },
   other: { tg: 'Дигар', ru: 'Другое' },
   accTitle: { tg: 'Кабинети ман', ru: 'Личный кабинет' },
+  accDelete: { tg: 'Нест кардани аккаунт', ru: 'Удалить аккаунт' },
+  accDeleteSure: { tg: 'Бале, нест кун — бори дигар пахш кунед', ru: 'Да, удалить — нажмите ещё раз' },
+  accDeleted: { tg: 'Аккаунт нест карда шуд.', ru: 'Аккаунт удалён.' },
+  accRelogin: { tg: 'Барои нест кардан аз нав бо SMS ворид шавед ва боз пахш кунед.', ru: 'Для удаления войдите заново по SMS и нажмите ещё раз.' },
+  privacy: { tg: 'Сиёсати махфият', ru: 'Политика конфиденциальности' },
+  consent: { tg: 'Бо регистратсия шумо ба {l} розӣ мешавед.', ru: 'Регистрируясь, вы соглашаетесь с {l}.' },
+  consentLink: { tg: 'Сиёсати махфият', ru: 'Политикой конфиденциальности' },
   accLead: { tg: 'Бо рақами телефон ворид шавед, то фармоишҳо ва кафолати худро бинед.', ru: 'Войдите по номеру телефона, чтобы видеть свои заказы и гарантию.' },
   accLogin: { tg: 'Ворид шудан', ru: 'Войти' },
   accOrders: { tg: 'Фармоишҳои ман', ru: 'Мои заказы' },
@@ -113,6 +120,8 @@ function css() {
 #evroGate .gCodeBox{font-size:30px;font-weight:900;letter-spacing:2px;text-align:center;background:#fff;color:#071b2c;border-radius:14px;padding:16px;margin:0 0 12px;border:3px dashed #ff9f1c}
 #evroGate .gSun{width:64px;height:64px;margin:0 auto 10px;display:block}
 #evroGate [hidden]{display:none!important}
+#evroGate .gConsent{font-size:13px;margin:12px 0 0;text-align:center;color:#b9cad7}#evroGate .gConsent a{color:#ffd08a}
+#account .accDanger{background:#fde2e1;color:#a51d2d}#account .accLinks{margin:18px 0 0;text-align:center}#account .accLinks a{color:#b9cad7}
 #evroGate .gCaptcha{min-height:78px;margin:0 0 12px;display:flex;justify-content:center;transform-origin:center}
 @media (max-width:340px){#evroGate .gCaptcha{transform:scale(.88)}}
 #account .accCard{background:#fff;color:#142033;border-radius:18px;padding:18px;margin:0 0 14px;box-shadow:0 8px 25px #0002}
@@ -166,7 +175,8 @@ function build() {
    <div class="gRow"><span class="gPre">+992</span><input id="gPhone" type="tel" inputmode="numeric" autocomplete="tel-national" maxlength="12" placeholder="00 000 0000" required></div>
    <div id="gRecaptcha" class="gCaptcha"></div>
    <p class="gErr" id="gErr1" role="alert"></p><button class="gMain" id="gSend" type="submit">${tr('send')}</button>
-   <button class="gLink" id="gSkip" type="button" hidden>${tr('skip')}</button></form>
+   <button class="gLink" id="gSkip" type="button" hidden>${tr('skip')}</button>
+   <p class="gConsent">${tr('consent', { l: `<a href="/privacy.html#${lang() === 'ru' ? 'ru' : 'tg'}">${tr('consentLink')}</a>` })}</p></form>
   <form id="gCodeStep" hidden><h2>${tr('code')}</h2><p id="gCodeLead"></p>
    <label for="gCode">${tr('code')}</label><input id="gCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required>
    <p class="gErr" id="gErr2" role="alert"></p><button class="gMain" id="gVerify" type="submit">${tr('verify')}</button>
@@ -360,14 +370,35 @@ async function renderAccount() {
   const c = window.evroCustomer;
   if (!auth || !auth.currentUser || !c) {
     box.innerHTML = `<div class="accCard"><p>${esc(tr('accLead'))}</p><button type="button" class="accBtn accMain" id="accLoginBtn">${esc(tr('accLogin'))}</button></div>`;
+    box.insertAdjacentHTML('beforeend', `<p class="accLinks"><a href="/privacy.html">${esc(tr('privacy'))}</a></p>`);
     box.querySelector('#accLoginBtn').onclick = () => { try { localStorage.removeItem(SKIP_KEY); } catch {} if (!auth) start(); else showGate('phone'); };
     return;
   }
   box.innerHTML = `<div class="accCard"><div class="accMuted">${esc(tr('myCode'))}</div><div class="accCode">${esc(c.code)}</div>
     <div><b>${esc(c.name || '—')}</b></div><div class="accMuted">${esc(c.phone)}${c.city ? ' · ' + esc(c.city) : ''}</div>
-    <button type="button" class="accBtn accGhost" id="accEditBtn">${esc(tr('accEdit'))}</button><button type="button" class="accBtn accGhost" id="accLogoutBtn">${esc(tr('logout'))}</button></div>
-    <h2 class="accH">${esc(tr('accOrders'))}</h2><div id="accOrders" class="accMuted" style="color:#b9cad7">${esc(tr('accLoading'))}</div>`;
+    <button type="button" class="accBtn accGhost" id="accEditBtn">${esc(tr('accEdit'))}</button><button type="button" class="accBtn accGhost" id="accLogoutBtn">${esc(tr('logout'))}</button>
+    <button type="button" class="accBtn accDanger" id="accDeleteBtn">${esc(tr('accDelete'))}</button><p class="accMuted" id="accDeleteMsg" role="status"></p></div>
+    <h2 class="accH">${esc(tr('accOrders'))}</h2><div id="accOrders" class="accMuted" style="color:#b9cad7">${esc(tr('accLoading'))}</div>
+    <p class="accLinks"><a href="/privacy.html">${esc(tr('privacy'))}</a></p>`;
   box.querySelector('#accLogoutBtn').onclick = () => { signOut(auth).catch(() => {}); };
+  const delBtn = box.querySelector('#accDeleteBtn'); let armed = 0;
+  delBtn.onclick = async () => {
+    // Two taps instead of confirm(): system dialogs are unreliable inside the Android WebView.
+    if (Date.now() - armed > 6000) { armed = Date.now(); delBtn.textContent = tr('accDeleteSure'); return; }
+    delBtn.disabled = true;
+    const user = auth.currentUser, msg = box.querySelector('#accDeleteMsg');
+    try {
+      await deleteDoc(doc(db, 'customers', user.uid)).catch(e => console.warn('customers delete', e));
+      await deleteUser(user);
+      try { localStorage.removeItem(SKIP_KEY); } catch {}
+      msg.textContent = tr('accDeleted');
+    } catch (e) {
+      console.error('delete account', e);
+      delBtn.disabled = false; delBtn.textContent = tr('accDelete'); armed = 0;
+      if (String(e?.code || '').includes('requires-recent-login')) { msg.textContent = tr('accRelogin'); signOut(auth).catch(() => {}); }
+      else showError(msg, e);
+    }
+  };
   box.querySelector('#accEditBtn').onclick = () => {
     showGate('profile');
     const n = gate.querySelector('#gName'), sel = gate.querySelector('#gCity');

@@ -63,7 +63,8 @@ service cloud.firestore {
         && smallText(request.resource.data.city, 60)
         && smallText(request.resource.data.code, 20)
         && request.resource.data.phone == request.auth.token.phone_number;
-      allow delete: if isAdmin();
+      // Owner can delete their profile (in-app account deletion), admin can too.
+      allow delete: if isAdmin() || (request.auth != null && request.auth.uid == uid);
     }
 
     // Everything else is closed.

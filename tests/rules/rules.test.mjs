@@ -92,6 +92,11 @@ test('personal account: customer sees only own orders', async () => {
   await assertFails(updateDoc(doc(customer(), 'orders/mine'), { status: 'cancelled' }));
 });
 
+test('customer can delete own profile only', async () => {
+  await assertFails(deleteDoc(doc(customer('c2', '+992900000002'), 'customers/c1')));
+  await assertSucceeds(deleteDoc(doc(customer(), 'customers/c1')));
+});
+
 test('unknown collections are closed', async () => {
   await assertFails(setDoc(doc(admin(), 'other/x'), { a: 1 }));
   await assertFails(getDoc(doc(guest(), 'other/x')));
