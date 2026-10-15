@@ -1,0 +1,68 @@
+rules_version = '2';
+
+// EVROSTAR — Firestore security rules.
+// Paste into Firebase Console → Firestore Database → Rules → Publish.
+//
+// WHY: after SMS registration every customer is "signed in". Rules that only check
+// `request.auth != null` would let any customer change products and read all orders.
+// Admin rights must be tied to the admin account's UID.
+//
+// SETUP: Firebase Console → Authentication → Users → copy the "User UID" of the admin
+// (email) account and replace PASTE_ADMIN_UID below. Add more UIDs to the list if needed.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAdmin() {
+      return request.auth != null && request.auth.uid in ['PASTE_ADMIN_UID'];
+    }
+    function smallText(v, max) { return v is string && v.size() <= max; }
+
+    // Catalog and works: public to read, admin to change.
+    match /products/{id}       { allow read: if true; allow write: if isAdmin(); }
+    match /productImages/{id}  { allow read: if true; allow write: if isAdmin(); }
+    match /projects/{id}       { allow read: if true; allow write: if isAdmin(); }
+    match /projectImages/{id}  { allow read: if true; allow write: if isAdmin(); }
+
+    // Orders: anyone can place one; only admin can see or change them.
+    match /orders/{id} {
+      allow create: if request.resource.data.status == 'new';
+      allow read, update, delete: if isAdmin();
+    }
+    // Order status: the customer looks up their own order by its id (no listing).
+    match /orderStatus/{id} {
+      allow get: if true;
+      allow list: if isAdmin();
+      allow create: if request.resource.data.status == 'new' || isAdmin();
+      allow update, delete: if isAdmin();
+    }
+
+    // Reviews: public sees approved ones; new ones wait for moderation.
+    match /reviews/{id} {
+      allow read: if resource.data.status == 'approved' || isAdmin();
+      allow create: if request.resource.data.status == 'pending';
+      allow update, delete: if isAdmin();
+    }
+
+    // "Notify me when in stock" requests.
+    match /stockAlerts/{id} {
+      allow create: if request.resource.data.status == 'waiting';
+      allow read, update, delete: if isAdmin();
+    }
+
+    // Customers registered by SMS: each sees only their own profile; admin sees all.
+    match /customers/{uid} {
+      allow read: if (request.auth != null && request.auth.uid == uid) || isAdmin();
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['name', 'city', 'phone', 'code', 'lang', 'createdAt'])
+        && smallText(request.resource.data.name, 100)
+        && smallText(request.resource.data.city, 60)
+        && smallText(request.resource.data.code, 20)
+        && request.resource.data.phone == request.auth.token.phone_number;
+      allow delete: if isAdmin();
+    }
+
+    // Everything else is closed.
+    match /{document=**} { allow read, write: if false; }
+  }
+}
