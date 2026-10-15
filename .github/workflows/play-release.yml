@@ -29,19 +29,38 @@ jobs:
         id: key
         env:
           UPLOAD_KEYSTORE: ${{ secrets.UPLOAD_KEYSTORE }}
-        run: |
-          if [ -n "$UPLOAD_KEYSTORE" ]; then
-            echo "$UPLOAD_KEYSTORE" | base64 -d > "$RUNNER_TEMP/upload.jks"
-            echo "UPLOAD_KEYSTORE_FILE=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"
-            echo "signed=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "::warning::Secrets UPLOAD_KEYSTORE / UPLOAD_KEYSTORE_PASSWORD are not set — building unsigned files only."
-            echo "signed=false" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Build AAB and APK
-        env:
           UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.UPLOAD_KEYSTORE_PASSWORD }}
         run: |
+          if [ -z "$UPLOAD_KEYSTORE" ]; then
+            echo "::warning::Secrets UPLOAD_KEYSTORE / UPLOAD_KEYSTORE_PASSWORD are not set — building unsigned files only."
+            echo "signed=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          # Text copied on a phone may contain spaces/line breaks; drop them before decoding.
+          python3 - <<'PY'
+          import base64, os, re, sys
+          raw = re.sub(r'[^A-Za-z0-9+/=]', '', os.environ['UPLOAD_KEYSTORE'])
+          print(f'::notice title=keystore::base64 length {len(raw)} (expected 3552)')
+          raw += '=' * (-len(raw) % 4)
+          try:
+              data = base64.b64decode(raw)
+          except Exception as e:
+              print(f'::error title=keystore::not valid base64: {e}'); sys.exit(1)
+          open(os.path.join(os.environ['RUNNER_TEMP'], 'upload.jks'), 'wb').write(data)
+          print(f'::notice title=keystore::decoded {len(data)} bytes')
+          PY
+          pw=$(printf '%s' "$UPLOAD_KEYSTORE_PASSWORD" | tr -d '[:space:]')
+          echo "::add-mask::$pw"
+          echo "UPLOAD_KEYSTORE_PASSWORD_CLEAN=$pw" >> "$GITHUB_ENV"
+          if ! keytool -list -keystore "$RUNNER_TEMP/upload.jks" -storetype pkcs12 -storepass "$pw" -alias upload >/dev/null 2>"$RUNNER_TEMP/kt.err"; then
+            echo "::error title=keystore::cannot open the keystore: $(head -c 300 "$RUNNER_TEMP/kt.err" | tr '\n' ' ')"; exit 1
+          fi
+          fp=$(keytool -list -v -keystore "$RUNNER_TEMP/upload.jks" -storetype pkcs12 -storepass "$pw" -alias upload | grep 'SHA256:' | head -1)
+          echo "::notice title=keystore::OK $fp"
+          echo "UPLOAD_KEYSTORE_FILE=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+      - name: Build AAB and APK
+        run: |
+          export UPLOAD_KEYSTORE_PASSWORD="$UPLOAD_KEYSTORE_PASSWORD_CLEAN"
           gradle -p android bundleRelease assembleRelease --no-daemon
           mkdir out
           cp android/app/build/outputs/bundle/release/app-release.aab out/EVROSTAR.aab
