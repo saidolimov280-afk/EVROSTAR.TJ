@@ -33,13 +33,13 @@ FAKE_FS = r"""
 const F=window.__FAKE||(window.__FAKE={});F.writes=F.writes||[];
 export const getFirestore=()=>({});export const initializeFirestore=()=>({});
 export const persistentLocalCache=()=>0;export const persistentMultipleTabManager=()=>0;
-export const collection=(db,name)=>({name});export const doc=(db,name,id)=>({name:name&&name.name?name.name:name,id:id||'auto'+Math.random().toString(36).slice(2,8)});
-export const query=(c)=>c;export const where=()=>0;export const limit=()=>0;export const orderBy=()=>0;export const serverTimestamp=()=>null;
+export const collection=(db,name)=>({name});export const doc=(a,b,c)=>(a&&a.name&&b===undefined)?{name:a.name,id:'auto'+Math.random().toString(36).slice(2,8)}:{name:b&&b.name?b.name:b,id:c||'auto'+Math.random().toString(36).slice(2,8)};
+export const query=(c,...cs)=>({name:c.name,w:cs.filter(x=>x&&x.field)});export const where=(field,op,val)=>({field,val});export const limit=()=>0;export const orderBy=()=>0;export const serverTimestamp=()=>null;
 const docs=n=>(F.data&&F.data[n]||[]).map((d,i)=>({id:d.id||String(i),data:()=>d}));
 export const onSnapshot=(q,ok)=>{setTimeout(()=>ok({docs:docs(q.name)}),20);return()=>{}};
 export const getDoc=async(r)=>{const d=(F.data&&F.data[r.name]||[]).find(x=>x.id===r.id);return{exists:()=>!!d,data:()=>d}};
 export const setDoc=async(r,v)=>{F.writes.push({col:r.name,id:r.id,v})};
-export const updateDoc=async()=>{};export const deleteDoc=async()=>{};export const addDoc=async()=>{};export const getDocs=async()=>({docs:[]});
+export const updateDoc=async()=>{};export const deleteDoc=async()=>{};export const addDoc=async()=>{};export const getDocs=async(q)=>({docs:docs(q.name).filter(d=>(q.w||[]).every(w=>d.data()[w.field]===w.val))});
 """
 
 failures = []
@@ -62,6 +62,8 @@ async def new_page(browser, ua=None, fake=None, init=''):
         if 'gstatic.com/firebasejs' in u:
             body = FAKE_APP if 'firebase-app' in u else FAKE_AUTH if 'firebase-auth' in u else FAKE_FS if 'firestore' in u else ''
             await r.fulfill(status=200, content_type='application/javascript', body=body); return
+        if 'wa.me' in u:
+            await r.fulfill(status=204, body=''); return  # stay on the page so its state can be checked
         await r.abort()
     await page.route('**/*', route)
     return page, errors
@@ -126,10 +128,37 @@ async def test_captcha_required(browser):
           'code is not sent until the robot check is ticked')
     await page.context.close()
 
+async def test_account_page(browser):
+    fake = ('{user:{uid:"uidTEST1234567890",phoneNumber:"+992900000001",providerData:[{providerId:"phone"}]},'
+            'data:{customers:[{id:"uidTEST1234567890",name:"Алӣ",phone:"+992900000001",city:"Ҳисор",code:"EVRO-ABCDEF"}],'
+            'orders:[{id:"ord1",no:"AB12CD",uid:"uidTEST1234567890",status:"done",total:5000,items:[{name:"Инвертор 5кВт",qty:1}],createdAt:{seconds:1767225600},statusAt:{seconds:1767225600}},'
+            '{id:"ord2",no:"ZZ99ZZ",uid:"someoneElse",status:"new",total:1,items:[{name:"Бегона",qty:1}]}]}}')
+    page, errors = await new_page(browser, APP_UA, fake)
+    await page.goto(BASE + '/index.html')
+    await skip_intro(page)
+    await page.click('#evroCodeChip')
+    await page.wait_for_selector('#account:visible')
+    await page.wait_for_selector('.accOrder')
+    txt = await page.inner_text('#account')
+    check('EVRO-ABCDEF' in txt and 'Алӣ' in txt, 'account shows profile and code')
+    check('AB12CD' in txt and 'Расонида шуд' in txt, 'account lists own order with status')
+    check('ZZ99ZZ' not in txt, 'account hides other customers orders')
+    check('Кафолат то 01.01.2027' in txt, 'warranty end date shown for delivered order')
+    await page.wait_for_timeout(900)
+    check(await page.locator('#evroCodeChip:visible').count() == 0, 'code chip hidden on account page')
+    await page.screenshot(path='/tmp/claude-0/-home-claude-evrostar-tj/b52afe6b-1fc9-5b08-9122-35f54a10a685/scratchpad/account.png') if os.environ.get('EVRO_SHOTS') else None
+    await page.click('#accLogoutBtn')
+    await page.wait_for_timeout(300)
+    check(await page.locator('#evroCodeChip').count() == 0 and 'Ворид шудан' in await page.inner_text('#account'), 'logout clears the account')
+    check(not errors, 'no page errors on account: ' + '; '.join(errors[:3]))
+    await page.context.close()
+
 async def test_returning_customer(browser):
     fake = ('{user:{uid:"uidTEST1234567890",phoneNumber:"+992900000001",providerData:[{providerId:"phone"}]},'
             'data:{customers:[{id:"uidTEST1234567890",name:"Алӣ",phone:"+992900000001",code:"EVRO-ABCDEF"}],'
-            'products:[{id:"p1",name:"Панели офтобӣ 630W",price:950,availability:"in_stock",category:"solar"}]}}')
+            'products:[{id:"p1",name:"Панели офтобӣ 630W",price:950,availability:"in_stock",category:"solar"}],'
+            'orders:[{id:"ord1",no:"AB12CD",uid:"uidTEST1234567890",status:"done",total:5000,items:[{name:"Инвертор 5кВт",qty:1}],createdAt:{seconds:1767225600},statusAt:{seconds:1767225600}},'
+            '{id:"ord2",no:"ZZ99ZZ",uid:"someoneElse",status:"new",total:1,items:[{name:"Бегона",qty:1}]}]}}')
     cart = "try{localStorage.setItem('evrostar_cart',JSON.stringify([{id:'p1',name:'Панели офтобӣ 630W',price:950,qty:1}]))}catch(e){}"
     page, errors = await new_page(browser, APP_UA, fake, cart)
     await page.goto(BASE + '/index.html')
@@ -147,6 +176,8 @@ async def test_returning_customer(browser):
     await page.wait_for_timeout(5000)
     text = urllib.parse.unquote(wa[-1]) if wa else ''
     check('EVRO-ABCDEF' in text and '+992900000001' in text, 'WhatsApp order includes purchase code')
+    ow = await page.evaluate('window.__FAKE.writes.filter(w=>w.col==="orders").map(w=>w.v)')
+    check(bool(ow) and ow[-1].get('uid') == 'uidTEST1234567890' and ow[-1].get('customerCode') == 'EVRO-ABCDEF', 'order saved with customer uid and code')
     await page.context.close()
 
 async def test_website_has_no_gate(browser):
@@ -195,7 +226,7 @@ async def main():
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     async with async_playwright() as p:
         browser = await p.chromium.launch()
-        for t in (test_app_registration, test_captcha_required, test_returning_customer, test_website_has_no_gate, test_admin):
+        for t in (test_app_registration, test_captcha_required, test_account_page, test_returning_customer, test_website_has_no_gate, test_admin):
             try:
                 await t(browser)
             except Exception as e:

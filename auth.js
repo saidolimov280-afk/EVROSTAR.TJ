@@ -3,7 +3,7 @@
 // Flow: phone → SMS code → name + city → personal purchase code (EVRO-XXXXXX).
 import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js';
 import { getAuth, RecaptchaVerifier, signInWithPhoneNumber, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js';
-import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
+import { getFirestore, doc, getDoc, setDoc, serverTimestamp, collection, query, where, limit, getDocs } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
 
 const cfg = {
   apiKey: 'AIzaSyA_zCecmxy5IYVzh2wESMDRZ_rZlFpWx6w',
@@ -11,7 +11,8 @@ const cfg = {
   projectId: 'evrostar-c7c85',
   storageBucket: 'evrostar-c7c85.firebasestorage.app',
   messagingSenderId: '869866043004',
-  appId: '1:869866043004:web:4b45a671f60d5faa04bbf9'
+  appId: '1:869866043004:web:4b45a671f60d5faa04bbf9',
+  measurementId: 'G-4EWNY50H0D'
 };
 
 const ua = navigator.userAgent || '';
@@ -53,6 +54,22 @@ const T = {
   myCode: { tg: 'Коди ман', ru: 'Мой код' },
   logout: { tg: 'Баромадан', ru: 'Выйти' },
   other: { tg: 'Дигар', ru: 'Другое' },
+  accTitle: { tg: 'Кабинети ман', ru: 'Личный кабинет' },
+  accLead: { tg: 'Бо рақами телефон ворид шавед, то фармоишҳо ва кафолати худро бинед.', ru: 'Войдите по номеру телефона, чтобы видеть свои заказы и гарантию.' },
+  accLogin: { tg: 'Ворид шудан', ru: 'Войти' },
+  accOrders: { tg: 'Фармоишҳои ман', ru: 'Мои заказы' },
+  accNoOrders: { tg: 'Ҳоло фармоиш нест. Фармоишҳое, ки пас аз регистратсия мекунед, дар ин ҷо пайдо мешаванд.', ru: 'Заказов пока нет. Заказы, сделанные после регистрации, появятся здесь.' },
+  accLoading: { tg: 'Боркунӣ…', ru: 'Загрузка…' },
+  accLoadErr: { tg: 'Фармоишҳо бор нашуданд. Интернетро санҷед.', ru: 'Не удалось загрузить заказы. Проверьте интернет.' },
+  accEdit: { tg: 'Тағйир додани маълумот', ru: 'Изменить данные' },
+  accWarranty: { tg: 'Кафолат то {d}', ru: 'Гарантия до {d}' },
+  accWarrantyOver: { tg: 'Кафолат {d} анҷом ёфт', ru: 'Гарантия закончилась {d}' },
+  accItems: { tg: 'мол', ru: 'тов.' },
+  accTotal: { tg: 'Ҷамъ', ru: 'Итого' },
+  accAsk: { tg: 'Пурсидан дар WhatsApp', ru: 'Спросить в WhatsApp' },
+  accAskText: { tg: 'Салом! Фармоиши ман № {no}. Коди харидор: {c}.', ru: 'Здравствуйте! Мой заказ № {no}. Код покупателя: {c}.' },
+  stnew: { tg: 'Қабул шуд', ru: 'Принят' }, stconfirmed: { tg: 'Тасдиқ шуд', ru: 'Подтверждён' }, stpaid: { tg: 'Пардохт шуд', ru: 'Оплачен' },
+  stshipped: { tg: 'Дар роҳ', ru: 'В пути' }, stdone: { tg: 'Расонида шуд', ru: 'Доставлен' }, stcancelled: { tg: 'Бекор шуд', ru: 'Отменён' },
   captcha: { tg: 'Аввал «Я не робот»-ро қайд кунед.', ru: 'Сначала отметьте «Я не робот».' },
   timeout: { tg: 'Ҷавоб наомад. Интернетро санҷед ва боз кӯшиш кунед.', ru: 'Нет ответа. Проверьте интернет и попробуйте ещё раз.' }
 };
@@ -98,6 +115,17 @@ function css() {
 #evroGate [hidden]{display:none!important}
 #evroGate .gCaptcha{min-height:78px;margin:0 0 12px;display:flex;justify-content:center;transform-origin:center}
 @media (max-width:340px){#evroGate .gCaptcha{transform:scale(.88)}}
+#account .accCard{background:#fff;color:#142033;border-radius:18px;padding:18px;margin:0 0 14px;box-shadow:0 8px 25px #0002}
+#account .accCode{font:900 24px/1.2 Arial,sans-serif;letter-spacing:1px;margin:6px 0 4px}
+#account .accMuted{color:#5b6f80;font-size:14px}
+#account .accBtn{display:inline-flex;align-items:center;justify-content:center;min-height:46px;padding:10px 16px;border:0;border-radius:12px;font-weight:800;font-size:16px;cursor:pointer;text-decoration:none;margin:10px 8px 0 0}
+#account .accMain{background:#ff9f1c;color:#102033}#account .accGhost{background:#eef3f7;color:#142033}#account .accWa{background:#18a957;color:#fff}
+#account h2.accH{color:#eaf2f8;margin:22px 0 12px}
+#account .accOrder{background:#fff;color:#142033;border-radius:16px;padding:14px 16px;margin:0 0 12px}
+#account .accOrderHead{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+#account .accSt{display:inline-block;border-radius:999px;padding:3px 10px;font-size:13px;font-weight:700;background:#eef3f7}
+#account .st-done{background:#dff5e7;color:#126b34}#account .st-cancelled{background:#fde2e1;color:#a51d2d}#account .st-new{background:#fff3d6;color:#8a5a00}
+#account ul{margin:8px 0;padding-left:18px}#account .accWarr{font-size:14px;font-weight:700;color:#126b34}#account .accWarr.over{color:#a51d2d}
 #evroCodeChip{position:fixed;left:14px;bottom:calc(88px + env(safe-area-inset-bottom));z-index:25;background:#071b2c;color:#fff;border:2px solid #ff9f1c;border-radius:999px;padding:8px 14px;font:700 14px Arial,sans-serif;box-shadow:0 6px 18px #0004;cursor:pointer}
 body.evroLocked{overflow:hidden}`;
   document.head.appendChild(s);
@@ -114,7 +142,7 @@ function start() {
   auth.languageCode = 'ru';
   db = getFirestore(app);
   onAuthStateChanged(auth, async user => {
-    if (!user) { window.evroCustomer = null; if (!skippedRecently()) showGate('phone'); return; }
+    if (!user) { window.evroCustomer = null; document.getElementById('evroCodeChip')?.remove(); if (location.hash === '#account') renderAccount(); if (!skippedRecently()) showGate('phone'); return; }
     try {
       const snap = await getDoc(doc(db, 'customers', user.uid));
       if (snap.exists() && snap.data().name) { ready(snap.data()); hideGate(); }
@@ -301,14 +329,80 @@ function ready(p) {
   let chip = document.getElementById('evroCodeChip');
   if (!chip && c.code) {
     chip = el(`<button id="evroCodeChip" type="button" aria-label="${tr('myCode')}"></button>`);
-    chip.addEventListener('click', () => {
-      if (confirm(`${tr('myCode')}: ${c.code}\n\n${tr('logout')}?`)) signOut(auth).catch(() => {});
-    });
+    chip.addEventListener('click', () => { location.hash = '#account'; });
     document.body.appendChild(chip);
   }
   if (chip) chip.textContent = `${tr('myCode')}: ${c.code}`;
+  syncChip();
   window.dispatchEvent(new CustomEvent('evrocustomer', { detail: c }));
+  if (location.hash === '#account') renderAccount();
 }
 
+// ---------- Personal account: profile, own orders, warranty ----------
+const esc = v => String(v ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+const fmtDate = d => d ? d.toLocaleDateString(lang() === 'ru' ? 'ru-RU' : 'ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
+const WARRANTY_MONTHS = 12; // store warranty: 1 year (see FAQ)
+function orderDate(o) { const t = o.createdAt; return t?.toDate ? t.toDate() : (t?.seconds ? new Date(t.seconds * 1000) : null); }
+function warrantyLine(o) {
+  if ((o.status || 'new') !== 'done') return '';
+  const t = o.statusAt?.toDate ? o.statusAt.toDate() : orderDate(o);
+  if (!t) return '';
+  const end = new Date(t); end.setMonth(end.getMonth() + WARRANTY_MONTHS);
+  const over = end < new Date();
+  return `<div class="accWarr${over ? ' over' : ''}">🛡 ${esc(tr(over ? 'accWarrantyOver' : 'accWarranty', { d: fmtDate(end) }))}</div>`;
+}
+let accountSeq = 0;
+async function renderAccount() {
+  const box = document.getElementById('accountBody');
+  if (!box) return;
+  const seq = ++accountSeq;
+  const t = document.getElementById('accountTitle'); if (t) t.textContent = tr('accTitle');
+  const c = window.evroCustomer;
+  if (!auth || !auth.currentUser || !c) {
+    box.innerHTML = `<div class="accCard"><p>${esc(tr('accLead'))}</p><button type="button" class="accBtn accMain" id="accLoginBtn">${esc(tr('accLogin'))}</button></div>`;
+    box.querySelector('#accLoginBtn').onclick = () => { try { localStorage.removeItem(SKIP_KEY); } catch {} if (!auth) start(); else showGate('phone'); };
+    return;
+  }
+  box.innerHTML = `<div class="accCard"><div class="accMuted">${esc(tr('myCode'))}</div><div class="accCode">${esc(c.code)}</div>
+    <div><b>${esc(c.name || '—')}</b></div><div class="accMuted">${esc(c.phone)}${c.city ? ' · ' + esc(c.city) : ''}</div>
+    <button type="button" class="accBtn accGhost" id="accEditBtn">${esc(tr('accEdit'))}</button><button type="button" class="accBtn accGhost" id="accLogoutBtn">${esc(tr('logout'))}</button></div>
+    <h2 class="accH">${esc(tr('accOrders'))}</h2><div id="accOrders" class="accMuted" style="color:#b9cad7">${esc(tr('accLoading'))}</div>`;
+  box.querySelector('#accLogoutBtn').onclick = () => { signOut(auth).catch(() => {}); };
+  box.querySelector('#accEditBtn').onclick = () => {
+    showGate('profile');
+    const n = gate.querySelector('#gName'), sel = gate.querySelector('#gCity');
+    n.value = c.name || '';
+    if ([...sel.options].some(o => o.value === c.city || o.textContent === c.city)) sel.value = c.city;
+    else if (c.city) { sel.value = 'other'; const o = gate.querySelector('#gCityOther'); o.hidden = false; o.value = c.city; }
+  };
+  let orders = [];
+  try {
+    const snap = await getDocs(query(collection(db, 'orders'), where('uid', '==', auth.currentUser.uid), limit(50)));
+    orders = snap.docs.map(d => ({ ...d.data(), id: d.id })).sort((a, b) => (orderDate(b)?.getTime() || 0) - (orderDate(a)?.getTime() || 0));
+  } catch (e) {
+    console.warn('account orders', e);
+    if (seq === accountSeq) document.getElementById('accOrders').textContent = tr('accLoadErr');
+    return;
+  }
+  if (seq !== accountSeq) return;
+  const list = document.getElementById('accOrders');
+  if (!orders.length) { list.textContent = tr('accNoOrders'); return; }
+  list.removeAttribute('style'); list.className = '';
+  list.innerHTML = orders.map(o => {
+    const st = ['new', 'confirmed', 'paid', 'shipped', 'done', 'cancelled'].includes(o.status) ? o.status : 'new';
+    const items = (Array.isArray(o.items) ? o.items : []).slice(0, 20).map(i => `<li>${esc(i.name)}${i.qty ? ' × ' + Number(i.qty) : ''}</li>`).join('');
+    const no = o.no || o.id.slice(0, 6).toUpperCase();
+    const wa = 'https://wa.me/992405555530?text=' + encodeURIComponent(tr('accAskText', { no, c: c.code }));
+    return `<div class="accOrder"><div class="accOrderHead"><b>№${esc(no)}</b><span class="accSt st-${st}">${esc(tr('st' + st))}</span></div>
+      <div class="accMuted">${esc(fmtDate(orderDate(o)))}${Number(o.total) ? ' · ' + esc(tr('accTotal')) + ': ' + Number(o.total).toLocaleString('ru-RU') + ' TJS' : ''}</div>
+      ${items ? `<ul>${items}</ul>` : ''}${warrantyLine(o)}<a class="accBtn accWa" href="${wa}">${esc(tr('accAsk'))}</a></div>`;
+  }).join('');
+}
+function syncChip() { const ch = document.getElementById('evroCodeChip'); if (ch) ch.hidden = location.hash === '#account'; }
+window.addEventListener('hashchange', () => { syncChip(); if (location.hash === '#account') renderAccount(); });
+window.addEventListener('evrolanguagechange', () => { if (location.hash === '#account') renderAccount(); });
+
 // Start last, after all declarations above are initialised.
-if (!isApp) window.evroCustomer = null; else start();
+// In the app: start at once. On the website: only the account page renders, and registration starts when asked.
+if (!isApp) { window.evroCustomer = null; if (location.hash === '#account') renderAccount(); }
+else start();

@@ -24,10 +24,14 @@ service cloud.firestore {
     match /projects/{id}       { allow read: if true; allow write: if isAdmin(); }
     match /projectImages/{id}  { allow read: if true; allow write: if isAdmin(); }
 
-    // Orders: anyone can place one; only admin can see or change them.
+    // Orders: anyone can place one. A signed-in customer's order carries their uid,
+    // and they can read their own orders (personal account). Only admin changes them.
     match /orders/{id} {
-      allow create: if request.resource.data.status == 'new';
-      allow read, update, delete: if isAdmin();
+      allow create: if request.resource.data.status == 'new'
+        && (!('uid' in request.resource.data)
+            || (request.auth != null && request.resource.data.uid == request.auth.uid));
+      allow read: if isAdmin() || (request.auth != null && resource.data.uid == request.auth.uid);
+      allow update, delete: if isAdmin();
     }
     // Order status: the customer looks up their own order by its id (no listing).
     match /orderStatus/{id} {

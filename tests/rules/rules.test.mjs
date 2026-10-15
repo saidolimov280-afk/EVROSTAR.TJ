@@ -17,6 +17,7 @@ beforeEach(async () => {
     const db = ctx.firestore();
     await setDoc(doc(db, 'products/p1'), { name: 'Panel', price: 950 });
     await setDoc(doc(db, 'orders/o1'), { status: 'new', name: 'X' });
+    await setDoc(doc(db, 'orders/mine'), { status: 'done', name: 'Ali', uid: 'c1' });
     await setDoc(doc(db, 'orderStatus/o1'), { status: 'new' });
     await setDoc(doc(db, 'reviews/r1'), { status: 'approved', rating: 5 });
     await setDoc(doc(db, 'reviews/r2'), { status: 'pending', rating: 4 });
@@ -78,6 +79,17 @@ test('customers: own profile only, phone must be the verified one', async () => 
   await assertFails(getDocs(collection(customer(), 'customers')));
   await assertFails(getDoc(doc(guest(), 'customers/c1')));
   await assertSucceeds(getDocs(collection(admin(), 'customers')));
+});
+
+test('personal account: customer sees only own orders', async () => {
+  await assertSucceeds(getDocs(query(collection(customer(), 'orders'), where('uid', '==', 'c1'))));
+  await assertSucceeds(getDoc(doc(customer(), 'orders/mine')));
+  await assertFails(getDoc(doc(customer('c2', '+992900000002'), 'orders/mine')));
+  await assertFails(getDocs(query(collection(customer('c2', '+992900000002'), 'orders'), where('uid', '==', 'c1'))));
+  await assertSucceeds(setDoc(doc(customer(), 'orders/o9'), { status: 'new', uid: 'c1', customerCode: 'EVRO-AAAAAA' }));
+  await assertFails(setDoc(doc(customer(), 'orders/o10'), { status: 'new', uid: 'c2' }));
+  await assertFails(setDoc(doc(guest(), 'orders/o11'), { status: 'new', uid: 'c1' }));
+  await assertFails(updateDoc(doc(customer(), 'orders/mine'), { status: 'cancelled' }));
 });
 
 test('unknown collections are closed', async () => {

@@ -192,7 +192,7 @@ function renderOrders(){
   const status=ORDER_STATUS[o.status]?o.status:"new";
   // Kit requests store their WhatsApp text lines as items with id "kit".
   const items=(Array.isArray(o.items)?o.items:[]).map(x=>(x.id==="kit"||x.id==="service")?`<li>${esc(x.name)}</li>`:`<li>${esc(x.name)} × ${Number(x.qty)||0} — ${Number(x.price)>0?Number(x.price).toLocaleString("ru-RU")+" сомони":"цена по запросу"}</li>`).join("");
-  const contact=o.name||o.phone?`<b>${esc(o.name)}</b> · <a href="tel:${esc(digits?"+"+digits:"")}">${esc(o.phone)}</a> · <a href="https://wa.me/${esc(digits)}" target="_blank" rel="noopener">WhatsApp</a>`:`<b>☀ Заявка на комплект</b> · контакт — в WhatsApp по номеру заказа`;
+  const contact=o.name||o.phone?`<b>${esc(o.name)}</b> · <a href="tel:${esc(digits?"+"+digits:"")}">${esc(o.phone)}</a> · <a href="https://wa.me/${esc(digits)}" target="_blank" rel="noopener">WhatsApp</a>${o.customerCode?` · <span style="font-family:monospace;font-weight:700;background:#e8f1ff;border-radius:6px;padding:1px 6px" title="Код покупателя (SMS-регистрация)">${esc(o.customerCode)}</span>`:""}`:`<b>☀ Заявка на комплект</b> · контакт — в WhatsApp по номеру заказа`;
   return `<div style="padding:14px 0;border-bottom:1px solid #ddd;color:#102033;font-size:15px${status==="new"?";background:#fffbe8":""}">
    ${(Array.isArray(o.items)&&o.items.some(x=>x.id==="service"))?`<span style="background:#ffe1d6;color:#9a3412;border-radius:8px;padding:2px 8px;font-weight:700;margin-right:6px">🛠 СЕРВИС</span>`:""}<b>№${esc(o.no||o.id.slice(0,6).toUpperCase())}</b> · ${esc(orderDate(o))}
    <div style="margin:6px 0">${contact}</div>
