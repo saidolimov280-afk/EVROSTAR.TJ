@@ -10,6 +10,7 @@ Run: python3 scripts/make-reels.py               (reads Firestore)
      PRODUCTS_FILE=products.json python3 ...     (reads a saved Firestore response)
 Needs Pillow and ffmpeg.
 """
+from multiprocessing import Pool
 import base64, io, json, math, os, re, subprocess, sys, urllib.request
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
@@ -228,7 +229,7 @@ def make_frames(p, hook):
 def render(p, hook, path):
     cmd = ['ffmpeg', '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{W}x{H}', '-r', str(FPS),
            '-i', '-', '-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=stereo', '-shortest',
-           '-c:v', 'libx264', '-preset', 'medium', '-crf', '21', '-pix_fmt', 'yuv420p', '-profile:v', 'high',
+           '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21', '-pix_fmt', 'yuv420p', '-profile:v', 'high',
            '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', path]
     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
     cover = None
@@ -240,6 +241,11 @@ def render(p, hook, path):
     if proc.wait():
         sys.exit(f'ffmpeg failed for {path}')
     cover.save(path[:-4] + '.jpg', quality=88)
+
+
+def render_job(job):
+    render(*job)
+    return job[2]
 
 
 def caption(p, hook):
@@ -269,15 +275,18 @@ def main():
             if by_cat[cat]:
                 order.append(by_cat[cat].pop(0))
     only = int(os.environ.get('LIMIT', '0')) or len(order)
-    meta = []
+    meta, jobs = [], []
     for n, p in enumerate(order[:only], 1):
         cat = p.get('category') or 'other'
         hook = HOOKS.get(cat, HOOKS['other'])[n % 2]
         name = f'{n:02d}-{slug(clean(p["name"]))}'
         path = os.path.join(OUT, name + '.mp4')
-        print(f'[{n}/{only}] {name}', flush=True)
-        render(p, hook, path)
+        if not os.path.exists(path[:-4] + '.jpg'):  # the cover is written last, so it marks a finished video
+            jobs.append((p, hook, path))
         meta.append({'n': n, 'id': p['id'], 'file': name + '.mp4', 'cover': name + '.jpg', 'caption': caption(p, hook)})
+    with Pool(max(1, (os.cpu_count() or 2) - 1)) as pool:
+        for path in pool.imap_unordered(render_job, jobs):
+            print('done', os.path.basename(path), flush=True)
     json.dump(meta, open(os.path.join(OUT, 'reels.json'), 'w'), ensure_ascii=False, indent=1)
 
 
