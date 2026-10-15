@@ -1,0 +1,37 @@
+name: Firebase setup
+# Publishes firestore.rules and configures Firebase Auth (Phone sign-in, test number,
+# authorized domains, SMS only to Tajikistan). Runs on demand and when firestore.rules changes.
+# Needs repository secret FIREBASE_SERVICE_ACCOUNT (JSON key from Firebase → Project settings → Service accounts).
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['firestore.rules', 'scripts/firebase_setup.py']
+permissions:
+  contents: read
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check secret
+        id: s
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$SA" ]; then echo "::warning::Secret FIREBASE_SERVICE_ACCOUNT is not set — nothing to do."; echo "ok=false" >> "$GITHUB_OUTPUT"
+          else printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"; echo "ok=true" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/setup-python@v5
+        if: steps.s.outputs.ok == 'true'
+        with:
+          python-version: '3.12'
+      - name: Configure Firebase
+        if: steps.s.outputs.ok == 'true'
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+        run: |
+          pip install -q google-auth requests
+          python scripts/firebase_setup.py
+      - name: Remove key file
+        if: always()
+        run: rm -f "$RUNNER_TEMP/sa.json"
