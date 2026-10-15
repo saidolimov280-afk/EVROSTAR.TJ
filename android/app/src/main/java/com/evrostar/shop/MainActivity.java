@@ -24,7 +24,7 @@ public class MainActivity extends Activity {
  }
  @Override public void onCreate(Bundle state) {
   super.onCreate(state);
-  LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(Color.WHITE);
+  LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(Color.parseColor("#071b2c"));
   progress=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);progress.setMax(100);
   root.addView(progress,new LinearLayout.LayoutParams(-1,8));
   FrameLayout frame=new FrameLayout(this);root.addView(frame,new LinearLayout.LayoutParams(-1,0,1));
@@ -32,7 +32,7 @@ public class MainActivity extends Activity {
   error=new LinearLayout(this);error.setOrientation(LinearLayout.VERTICAL);error.setGravity(android.view.Gravity.CENTER);error.setPadding(32,32,32,32);error.setBackgroundColor(Color.WHITE);error.setVisibility(View.GONE);
   TextView text=new TextView(this);text.setText("EVROSTAR\n\nПайвастшавӣ ба интернетро санҷед.\nПроверьте подключение к интернету.");text.setTextSize(20);text.setGravity(android.view.Gravity.CENTER);error.addView(text);
   Button retry=new Button(this);retry.setText("Боз кӯшиш кунед / Повторить");error.addView(retry);retry.setOnClickListener(v->{error.setVisibility(View.GONE);web.reload();});frame.addView(error,new FrameLayout.LayoutParams(-1,-1));setContentView(root);
-  WebSettings ws=web.getSettings();ws.setJavaScriptEnabled(true);ws.setDomStorageEnabled(true);ws.setAllowFileAccess(false);ws.setAllowContentAccess(false);ws.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);ws.setSupportMultipleWindows(false);ws.setMediaPlaybackRequiresUserGesture(true);
+  WebSettings ws=web.getSettings();ws.setUserAgentString(ws.getUserAgentString()+" EVROSTARApp/2");web.setBackgroundColor(Color.parseColor("#e3eef7"));ws.setJavaScriptEnabled(true);ws.setDomStorageEnabled(true);ws.setAllowFileAccess(false);ws.setAllowContentAccess(false);ws.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);ws.setSupportMultipleWindows(false);ws.setMediaPlaybackRequiresUserGesture(true);
   web.setWebChromeClient(new WebChromeClient(){ @Override public void onProgressChanged(WebView view,int value){progress.setProgress(value);progress.setVisibility(value<100?View.VISIBLE:View.GONE);} });
   web.setWebViewClient(new WebViewClient(){
    @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){
