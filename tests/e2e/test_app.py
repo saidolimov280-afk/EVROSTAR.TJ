@@ -184,7 +184,7 @@ async def test_returning_customer(browser):
     check(await page.locator('#evroGate:visible').count() == 0, 'registered customer is not asked again')
     check('EVRO-ABCDEF' in await page.inner_text('#evroCodeChip'), 'saved code shown to returning customer')
     check((await page.inner_text('#g3Code')) == 'EVRO-ABCDEF' and await page.locator('#g3Guest').is_hidden(), 'home card shows purchase code')
-    check(await page.locator('.g3Cat.promo-open').count() == 8, 'home shows 8 category buttons')
+    check(await page.locator('.g3Cat.promo-open').count() == 9, 'home shows 9 category buttons')
     # Checkout: the WhatsApp order text carries the purchase code and the verified phone.
     wa = []
     page.on('request', lambda r: wa.append(r.url) if 'wa.me' in r.url else None)
