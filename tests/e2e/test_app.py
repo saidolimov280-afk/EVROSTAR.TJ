@@ -141,7 +141,7 @@ async def test_account_page(browser):
     page, errors = await new_page(browser, APP_UA, fake)
     await page.goto(BASE + '/index.html')
     await skip_intro(page)
-    await page.click('#evroCodeChip')
+    await page.click('#g3AccountLink')  # home card replaces the floating chip on the home screen
     await page.wait_for_selector('#account:visible')
     await page.wait_for_selector('.accOrder')
     txt = await page.inner_text('#account')
@@ -183,6 +183,8 @@ async def test_returning_customer(browser):
     await page.wait_for_timeout(400)
     check(await page.locator('#evroGate:visible').count() == 0, 'registered customer is not asked again')
     check('EVRO-ABCDEF' in await page.inner_text('#evroCodeChip'), 'saved code shown to returning customer')
+    check((await page.inner_text('#g3Code')) == 'EVRO-ABCDEF' and await page.locator('#g3Guest').is_hidden(), 'home card shows purchase code')
+    check(await page.locator('.g3Cat.promo-open').count() == 8, 'home shows 8 category buttons')
     # Checkout: the WhatsApp order text carries the purchase code and the verified phone.
     wa = []
     page.on('request', lambda r: wa.append(r.url) if 'wa.me' in r.url else None)
