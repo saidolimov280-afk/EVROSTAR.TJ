@@ -5,6 +5,8 @@ Run:  pip install playwright && python -m playwright install chromium
 Covers: app registration by SMS (phone -> code -> profile -> purchase code),
 website without registration, checkout prefill + code in WhatsApp text,
 admin panel customers list, and that a phone-registered customer cannot open admin.
+Registration is switched off by default (window.EVRO_REGISTRATION in index.html):
+the registration tests switch it on, test_app_without_registration checks the default.
 """
 import asyncio, functools, http.server, os, sys, threading, urllib.parse
 from playwright.async_api import async_playwright
@@ -49,12 +51,12 @@ def check(cond, label):
     if not cond:
         failures.append(label)
 
-async def new_page(browser, ua=None, fake=None, init=''):
+async def new_page(browser, ua=None, fake=None, init='', reg=False):
     ctx = await browser.new_context(viewport={'width': 390, 'height': 844}, user_agent=ua or None)
     page = await ctx.new_page()
     errors = []
     page.on('pageerror', lambda e: errors.append(str(e)))
-    await page.add_init_script(f'window.__FAKE={fake or "{}"};' + init)
+    await page.add_init_script(f'window.__FAKE={fake or "{}"};' + ('window.EVRO_REGISTRATION=true;' if reg else '') + init)
 
     async def route(r):
         u = r.request.url
@@ -78,7 +80,7 @@ async def skip_intro(page):
     await page.wait_for_timeout(600)
 
 async def test_app_registration(browser):
-    page, errors = await new_page(browser, APP_UA)
+    page, errors = await new_page(browser, APP_UA, reg=True)
     await page.goto(BASE + '/index.html')
     await page.wait_for_timeout(800)
     check(await page.locator('#evroGate:visible').count() == 0, 'gate waits for the welcome video')
@@ -120,7 +122,7 @@ async def test_app_registration(browser):
     await page.context.close()
 
 async def test_captcha_required(browser):
-    page, errors = await new_page(browser, APP_UA, '{failInvisible:true,captchaUnticked:true}')
+    page, errors = await new_page(browser, APP_UA, '{failInvisible:true,captchaUnticked:true}', reg=True)
     await page.goto(BASE + '/index.html')
     await skip_intro(page)
     await page.fill('#gPhone', '900000001')
@@ -138,7 +140,7 @@ async def test_account_page(browser):
             'data:{customers:[{id:"uidTEST1234567890",name:"Алӣ",phone:"+992900000001",city:"Ҳисор",code:"EVRO-ABCDEF"}],'
             'orders:[{id:"ord1",no:"AB12CD",uid:"uidTEST1234567890",status:"done",total:5000,items:[{name:"Инвертор 5кВт",qty:1}],createdAt:{seconds:1767225600},statusAt:{seconds:1767225600}},'
             '{id:"ord2",no:"ZZ99ZZ",uid:"someoneElse",status:"new",total:1,items:[{name:"Бегона",qty:1}]}]}}')
-    page, errors = await new_page(browser, APP_UA, fake)
+    page, errors = await new_page(browser, APP_UA, fake, reg=True)
     await page.goto(BASE + '/index.html')
     await skip_intro(page)
     await page.click('#g3AccountLink')  # home card replaces the floating chip on the home screen
@@ -160,7 +162,7 @@ async def test_account_page(browser):
     check(await page.evaluate('!!window.__FAKE.deletedUser') and 'customers/uidTEST1234567890' in await page.evaluate('window.__FAKE.deletes||[]'),
           'second tap deletes profile and account')
     await page.context.close()
-    page, errors = await new_page(browser, APP_UA, fake)
+    page, errors = await new_page(browser, APP_UA, fake, reg=True)
     await page.goto(BASE + '/index.html#account')
     await skip_intro(page)
     await page.wait_for_selector('#accLogoutBtn')
@@ -177,7 +179,7 @@ async def test_returning_customer(browser):
             'orders:[{id:"ord1",no:"AB12CD",uid:"uidTEST1234567890",status:"done",total:5000,items:[{name:"Инвертор 5кВт",qty:1}],createdAt:{seconds:1767225600},statusAt:{seconds:1767225600}},'
             '{id:"ord2",no:"ZZ99ZZ",uid:"someoneElse",status:"new",total:1,items:[{name:"Бегона",qty:1}]}]}}')
     cart = "try{localStorage.setItem('evrostar_cart',JSON.stringify([{id:'p1',name:'Панели офтобӣ 630W',price:950,qty:1}]))}catch(e){}"
-    page, errors = await new_page(browser, APP_UA, fake, cart)
+    page, errors = await new_page(browser, APP_UA, fake, cart, reg=True)
     await page.goto(BASE + '/index.html')
     await skip_intro(page)
     await page.wait_for_timeout(400)
@@ -207,10 +209,42 @@ async def test_privacy_page(browser):
           'privacy policy page (tg + ru, account deletion section)')
     check(not errors, 'no page errors on privacy page')
     await page.context.close()
-    page, errors = await new_page(browser, APP_UA)
+    page, errors = await new_page(browser, APP_UA, reg=True)
     await page.goto(BASE + '/index.html')
     await skip_intro(page)
     check(await page.locator('#evroGate .gConsent a[href^="/privacy.html"]').count() == 1, 'registration shows privacy consent link')
+    await page.context.close()
+
+async def test_app_without_registration(browser):
+    # Default setting: registration is off, the app opens straight to the shop.
+    fake = '{data:{products:[{id:"p1",name:"Панели офтобӣ 630W",price:950,availability:"in_stock",category:"solar"}]}}'
+    cart = "try{localStorage.setItem('evrostar_cart',JSON.stringify([{id:'p1',name:'Панели офтобӣ 630W',price:950,qty:1}]))}catch(e){}"
+    page, errors = await new_page(browser, APP_UA, fake, cart)
+    await page.goto(BASE + '/index.html')
+    await skip_intro(page)
+    await page.wait_for_timeout(600)
+    check(await page.locator('#evroGate').count() == 0, 'app does not ask to register when registration is off')
+    check(await page.locator('#evroCodeChip').count() == 0, 'no purchase code chip when registration is off')
+    card = await page.inner_text('#g3Card')
+    check('Ҳама чиз барои барқи офтобӣ' in card and 'ворид' not in card.lower(), 'home card has no sign-in text')
+    check(await page.get_attribute('#g3GetApp', 'href') == '#catalog' and 'каталог' in (await page.inner_text('#g3GetApp')).lower(),
+          'home card button opens the catalog')
+    await page.evaluate("location.hash='#account'")
+    await page.wait_for_selector('#account:visible')
+    check('Ворид шудан' not in await page.inner_text('#account') and (await page.inner_text('#accountTitle')).strip() == 'Профил',
+          'profile page has no login')
+    wa = []
+    page.on('request', lambda r: wa.append(r.url) if 'wa.me' in r.url else None)
+    await page.evaluate("location.hash='#cart'")
+    await page.wait_for_selector('#customerAddress:visible')
+    await page.fill('#customerName', 'Алӣ')
+    await page.fill('#customerPhone', '+992 900 000 001')
+    await page.fill('#customerAddress', 'Ҳисор, кӯчаи 1')
+    await page.evaluate("document.getElementById('order').click()")
+    await page.wait_for_timeout(5000)
+    text = urllib.parse.unquote(wa[-1]) if wa else ''
+    check(bool(text) and 'EVRO-' not in text and 'Коди харидор' not in text and 'Алӣ' in text, 'WhatsApp order works and has no purchase code')
+    check(not errors, 'no page errors in app without registration: ' + '; '.join(errors[:3]))
     await page.context.close()
 
 async def test_website_has_no_gate(browser):
@@ -259,7 +293,7 @@ async def main():
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     async with async_playwright() as p:
         browser = await p.chromium.launch()
-        for t in (test_app_registration, test_captcha_required, test_account_page, test_returning_customer, test_privacy_page, test_website_has_no_gate, test_admin):
+        for t in (test_app_registration, test_captcha_required, test_account_page, test_returning_customer, test_privacy_page, test_app_without_registration, test_website_has_no_gate, test_admin):
             try:
                 await t(browser)
             except Exception as e:

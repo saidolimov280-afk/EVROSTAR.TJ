@@ -1,6 +1,7 @@
 // EVROSTAR: registration by phone number (SMS code) inside the app.
 // Shown only in the Android app and the installed PWA, not on the public website (keeps SEO intact).
 // Flow: phone → SMS code → name + city → personal purchase code (EVRO-XXXXXX).
+// Switched off unless window.EVRO_REGISTRATION === true (set at the top of index.html).
 import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js';
 import { getAuth, RecaptchaVerifier, signInWithPhoneNumber, onAuthStateChanged, signOut, deleteUser } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js';
 import { getFirestore, doc, getDoc, setDoc, deleteDoc, serverTimestamp, collection, query, where, limit, getDocs } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
@@ -19,6 +20,8 @@ const ua = navigator.userAgent || '';
 const isApp = /EVROSTARApp/.test(ua) ||
   (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true ||
   new URLSearchParams(location.search).has('register');
+// Off: no SMS gate in the app, no login on the account page, no purchase code in orders.
+const REGISTRATION = window.EVRO_REGISTRATION === true;
 
 function lang() { try { return window.evroLang || localStorage.getItem('evrostar_language') || 'tg'; } catch { return 'tg'; } }
 const T = {
@@ -369,6 +372,7 @@ let accountSeq = 0;
 async function renderAccount() {
   const box = document.getElementById('accountBody');
   if (!box) return;
+  if (!REGISTRATION) { box.innerHTML = ''; return; }
   const seq = ++accountSeq;
   const t = document.getElementById('accountTitle'); if (t) t.textContent = tr('accTitle');
   const c = window.evroCustomer;
@@ -439,5 +443,6 @@ window.addEventListener('evrolanguagechange', () => { if (location.hash === '#ac
 
 // Start last, after all declarations above are initialised.
 // In the app: start at once. On the website: only the account page renders, and registration starts when asked.
-if (!isApp) { window.evroCustomer = null; if (location.hash === '#account') renderAccount(); }
+if (!REGISTRATION) { window.evroCustomer = null; }
+else if (!isApp) { window.evroCustomer = null; if (location.hash === '#account') renderAccount(); }
 else start();
