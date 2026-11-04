@@ -1,0 +1,64 @@
+name: Telegram bot
+# EVROSTAR Telegram bot (scripts/telegram_bot.py):
+#  - every ~15 min: alerts for new orders, reviews and "notify me when in stock" requests;
+#  - every evening: summary. The Instagram/TikTok text comes from a Claude scheduled task
+#    (workflow_dispatch, mode=digest); at 21:45 Dushanbe the EVROSTAR part goes out alone if
+#    that text did not arrive.
+# Needs repository secrets TELEGRAM_BOT_TOKEN (from @BotFather) and FIREBASE_SERVICE_ACCOUNT.
+# This repository is public: the script prints no order details, counts or report text.
+on:
+  schedule:
+    - cron: '7,22,37,52 * * * *'   # watch
+    - cron: '45 16 * * *'          # fallback summary, 21:45 Dushanbe (keep in sync with FALLBACK_CRON)
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'test = send a test message; reset = bind another Telegram account'
+        type: choice
+        options: [test, watch, digest, reset]
+        default: test
+      report:
+        description: 'Instagram/TikTok text for the evening summary (mode digest)'
+        required: false
+        default: ''
+permissions:
+  contents: read
+concurrency:
+  group: telegram-bot-${{ (github.event.schedule == '45 16 * * *' || inputs.mode == 'digest') && 'digest' || 'watch' }}
+  cancel-in-progress: false
+jobs:
+  bot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts
+      - name: Check secrets
+        id: s
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          TG: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: |
+          if [ -z "$TG" ]; then
+            echo "::warning::Secret TELEGRAM_BOT_TOKEN is not set yet (Settings → Secrets and variables → Actions)."
+            echo "ok=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if [ -z "$SA" ]; then echo "::error::Secret FIREBASE_SERVICE_ACCOUNT is not set."; exit 1; fi
+          printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
+          echo "ok=true" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-python@v5
+        if: steps.s.outputs.ok == 'true'
+        with:
+          python-version: '3.12'
+      - name: Run bot
+        if: steps.s.outputs.ok == 'true'
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: |
+          pip install -q --disable-pip-version-check google-auth requests
+          python scripts/telegram_bot.py
+      - name: Remove key file
+        if: always()
+        run: rm -f "$RUNNER_TEMP/sa.json"
