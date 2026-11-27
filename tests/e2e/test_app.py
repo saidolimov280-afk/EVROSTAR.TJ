@@ -375,6 +375,37 @@ async def test_admin_import(browser):
     check(not errors, 'no page errors in admin import: ' + '; '.join(errors[:3]))
     await page.context.close()
 
+async def test_share_links(browser):
+    fake = ('{data:{products:[{id:"p1",name:"Панели офтобӣ 630W",price:950,availability:"in_stock",category:"solar"},'
+            '{id:"p2",name:"Аккумулятор 12V",price:300,category:"battery"}]}}')
+    page, errors = await new_page(browser, None, fake)
+    # Only p1 has a share page (made by scripts/build_share.py); p2 was added today.
+    await page.route('**/p/pages.json', lambda r: r.fulfill(status=200, content_type='application/json', body='{"ids":["p1"],"images":{}}'))
+    await page.goto(BASE + '/index.html#catalog')
+    await skip_intro(page)
+    await page.wait_for_timeout(500)
+    await page.evaluate("location.hash='#catalog'")
+    await page.wait_for_selector('#products button.details.productName[data-id="p1"]')
+    await page.click('#products button.details.productName[data-id="p1"]')
+    await page.wait_for_selector('#detailBody .productShare a')
+    wa = await page.get_attribute('#detailBody .productShare a[href*="wa.me"]', 'href') or ''
+    check('%2Fp%2Fp1.html' in wa, 'WhatsApp share uses the product page with photo and price')
+    await page.evaluate("document.getElementById('detail').close()")
+    await page.click('#products button.details.productName[data-id="p2"]')
+    await page.wait_for_timeout(200)
+    wa2 = await page.get_attribute('#detailBody .productShare a[href*="wa.me"]', 'href') or ''
+    check('product%3Dp2' in wa2 and '%2Fp%2Fp2.html' not in wa2, 'product without a page yet shares the normal link')
+    check(not errors, 'no page errors with share links: ' + '; '.join(errors[:3]))
+    await page.context.close()
+    # GitHub Pages answers a missing /p/<id>.html with 404.html, which opens the product in the shop.
+    page, errors = await new_page(browser, None, fake)
+    body = open(os.path.join(ROOT, '404.html'), encoding='utf-8').read()
+    await page.route('**/p/zz9.html', lambda r: r.fulfill(status=404, content_type='text/html', body=body))
+    await page.goto(BASE + '/p/zz9.html')
+    await page.wait_for_url('**/?product=zz9', timeout=5000)
+    check(page.url.endswith('/?product=zz9'), 'missing share page opens the product in the shop')
+    await page.context.close()
+
 async def main():
     handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=ROOT)
     class Quiet(http.server.SimpleHTTPRequestHandler):
@@ -384,7 +415,7 @@ async def main():
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     async with async_playwright() as p:
         browser = await p.chromium.launch()
-        for t in (test_app_registration, test_captcha_required, test_account_page, test_returning_customer, test_privacy_page, test_app_without_registration, test_website_has_no_gate, test_admin, test_empty_categories_and_stock_warning, test_admin_import):
+        for t in (test_app_registration, test_captcha_required, test_account_page, test_returning_customer, test_privacy_page, test_app_without_registration, test_website_has_no_gate, test_admin, test_empty_categories_and_stock_warning, test_admin_import, test_share_links):
             try:
                 await t(browser)
             except Exception as e:

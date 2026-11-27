@@ -58,6 +58,9 @@ function replaceBlock(text, name, content) {
   return text.slice(0, a + start.length) + content + text.slice(b);
 }
 
+// Product photos as web files, made by scripts/build_share.py (runs just before this script).
+const shareImages = JSON.parse(await readFile('p/pages.json', 'utf8').catch(() => '{}')).images || {};
+
 const products = (await loadProducts())
   .filter(p => p && p.id && nameOf(p) && p.hidden !== true)
   .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
@@ -77,7 +80,8 @@ const ld = {
   itemListElement: products.map((p, i) => {
     const item = { '@type': 'Product', name: nameOf(p), url: productUrl(p) };
     if (descOf(p)) item.description = short(descOf(p), 300);
-    if (isWebImage(p.image)) item.image = p.image;
+    if (shareImages[p.id]) item.image = shareImages[p.id];
+    else if (isWebImage(p.image)) item.image = p.image;
     if (p.category) item.category = String(p.category);
     const price = priceNum(p.price);
     if (price) {
