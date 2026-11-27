@@ -65,6 +65,16 @@ textarea{min-height:140px;resize:vertical}.btn{border:0;background:#1677df;color
 <button class="btn" id="saveBtn">Сохранить товар</button><button class="secondary" id="newBtn">Новый товар / отменить редактирование</button>
 <div class="msg" id="status"></div>
 </section>
+<section class="card" id="importBox" style="display:none"><h2>Импорт из Excel / Илова аз Excel</h2>
+<div class="small">Добавляйте много товаров сразу и меняйте цены и наличие одним файлом. Первая строка — заголовки: <b>Название, Цена</b>, Категория, Наличие (есть / нет / под заказ или количество), Старая цена, Описание, Название RU, Описание RU, Фото (ссылка https). Товар с тем же названием обновится, новый — добавится. Пустая ячейка ничего не меняет.<br>Молҳои зиёдро якбора илова кунед ва нарху мавҷудиятро бо як файл иваз кунед.</div>
+<button class="secondary" id="importTemplate" type="button">⬇ Скачать каталог для Excel / Зеркашии каталог (CSV)</button>
+<label for="importFile">Файл Excel (.xlsx) или CSV</label><input id="importFile" type="file" accept=".xlsx,.csv,.txt,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+<label for="importText">или вставьте строки из Excel / ё сатрҳоро аз Excel гузоред</label><textarea id="importText" placeholder="Название&#9;Цена&#9;Категория&#9;Наличие&#10;Стабилизатор 10 кВт&#9;1200&#9;Стабилизаторы&#9;есть"></textarea>
+<button class="secondary" id="importCheck" type="button">Проверить / Санҷидан</button>
+<div id="importPreview"></div>
+<button class="btn" id="importSave" type="button" style="display:none">Сохранить</button>
+<div class="msg" id="importStatus"></div>
+</section>
 <section class="card" id="worksBox" style="display:none"><h2 id="workFormTitle">Наши работы — добавить</h2><div class="small">Фото установленных систем. Показываются на главной странице сайта.</div>
 <label for="workTitle">Название (тоҷикӣ)</label><input id="workTitle" maxlength="120" placeholder="Например: Системаи 3,5 кВт барои хона">
 <label for="workTitleRu">Название на русском (необязательно)</label><input id="workTitleRu" maxlength="120" placeholder="Например: Система 3,5 кВт для дома">
@@ -295,7 +305,7 @@ $("workSave").onclick=async()=>{
  finally{$("workSave").disabled=false;$("workSave").textContent="Сохранить работу"}
 };
 onAdminState(user=>{
- $("listBox").style.display=user?"block":"none";$("photoBox").style.display=user?"block":"none";$("ordersBox").style.display=user?"block":"none";$("reviewsBox").style.display=user?"block":"none";$("alertsBox").style.display=user?"block":"none";
+ $("listBox").style.display=user?"block":"none";$("importBox").style.display=user?"block":"none";$("photoBox").style.display=user?"block":"none";$("ordersBox").style.display=user?"block":"none";$("reviewsBox").style.display=user?"block":"none";$("alertsBox").style.display=user?"block":"none";
  if(stopAlerts){stopAlerts();stopAlerts=null}alerts=[];
  if(user)stopAlerts=onSnapshot(query(collection(db,"stockAlerts"),orderBy("createdAt","desc"),limit(500)),snap=>{alerts=snap.docs.map(d=>({...d.data(),id:d.id}));renderAlerts()},e=>{$("alertList").textContent="Не удалось прочитать список: "+e.message+(String(e.code||"").includes("permission")?"\nДобавьте в правила Firestore доступ к коллекции stockAlerts.":"")});$("worksBox").style.display=user?"block":"none";
  if(stopWorks){stopWorks();stopWorks=null}workItems=[];
@@ -381,6 +391,188 @@ $("optimizeBtn").onclick=async()=>{
   msg("optimizeStatus","✓ Оптимизировано фото: "+done+". Каталог: "+Math.round(before/1024)+" КБ → "+Math.round(after/1024)+" КБ."+(skipped.length?"\nНе удалось прочитать фото по ссылке: "+skipped.join(", "):""),true);
  }catch(e){console.error(e);msg("optimizeStatus","Ошибка после "+done+" фото: "+e.message+(String(e.code||"").includes("permission")?"\nДобавьте в правила Firestore доступ к коллекции productImages.":""))}
  finally{$("optimizeBtn").disabled=false;$("optimizeBtn").textContent="Оптимизировать фото"}
+};
+// ---------- Import from Excel (.xlsx), CSV or rows pasted from Excel ----------
+// New names are added as products; a name that already exists updates that product
+// (price, stock and the filled-in cells only — an empty cell changes nothing).
+// .xlsx is a zip of XML files, read with the browser's own unzip (DecompressionStream): no library needed.
+const IMPORT_HEADERS={
+ name:/^(name|название|наименование|товар|ном|номи мол|название tj|ном tj)$/,
+ nameRu:/^(name ru|nameru|название ru|название по-русски|номи русӣ|ном ru)$/,
+ price:/^(price|цена|нарх|цена сомони|нарх сомонӣ)$/,
+ oldPrice:/^(old price|oldprice|старая цена|нархи кӯҳна|цена до скидки)$/,
+ category:/^(category|категория|гурӯҳ|группа)$/,
+ availability:/^(availability|наличие|мавҷудият|дар анбор)$/,
+ qty:/^(qty|quantity|количество|кол-во|остаток|миқдор|шумора)$/,
+ desc:/^(desc|description|описание|тавсиф)$/,
+ descRu:/^(desc ru|descru|description ru|описание ru|тавсиф ru)$/,
+ image:/^(image|photo|фото|расм|ссылка на фото|линки расм)$/
+};
+const IMPORT_DEFAULT_ORDER=["name","price","category","availability","desc"];
+const IMPORT_LABEL={solar:"Солнечные системы",battery:"Аккумуляторы",camera:"Камеры",internet:"Роутеры / Интернет",stabilizer:"Стабилизаторы",tv:"TV / Электроника",other:"Другое"};
+let importRows=[];
+const normHead=s=>String(s??"").toLowerCase().replace(/[*:()]/g," ").replace(/\s+/g," ").trim();
+const normName=s=>String(s??"").toLowerCase().replace(/\s+/g," ").trim();
+function importCategory(v){
+ const s=String(v??"").toLowerCase().trim();if(!s)return null;
+ if(IMPORT_LABEL[s])return s;
+ if(/стабил|stabil/.test(s))return"stabilizer";
+ if(/^(tv|тв)(\s|\/|$)|телевиз|электрон/.test(s))return"tv";
+ if(/аккум|акб|батар|battery|lifepo|литий|повербанк/.test(s))return"battery";
+ if(/камер|camera|видеонаб|cctv/.test(s))return"camera";
+ if(/роутер|router|интернет|internet|wi-?fi|модем/.test(s))return"internet";
+ if(/офтоб|солн|панел|инверт|solar|panel|invert|контроллер|прожектор/.test(s))return"solar";
+ return"other";
+}
+function importAvailability(v){
+ const s=String(v??"").toLowerCase().trim();if(!s)return null;
+ if(/^\d+([.,]\d+)?$/.test(s))return Number(s.replace(",","."))>0?"in_stock":"out_of_stock";
+ if(/заказ|фармоиш|order/.test(s))return"on_order";
+ if(/уточн|пурсед/.test(s))return"unknown";
+ if(/^(нет|нест|не|no|-)$|нет в нал|тамом|законч|out/.test(s))return"out_of_stock";
+ if(/^(есть|да|ҳаст|хаст|ҳа|yes|\+)$|налич|анбор|in.?stock/.test(s))return"in_stock";
+ return"unknown";
+}
+function importNumber(v){const s=String(v??"").replace(/[\s ]/g,"").replace(/[^\d.,-]/g,"").replace(",",".");if(s==="")return null;const n=Number(s);return Number.isFinite(n)?n:NaN}
+function parseDelimited(text){
+ text=String(text||"").replace(/^﻿/,"");
+ const first=text.split(/\r?\n/,1)[0]||"";
+ const sep=first.includes("\t")?"\t":first.split(";").length>first.split(",").length?";":",";
+ const rows=[];let row=[],cell="",q=false;
+ for(let i=0;i<text.length;i++){const ch=text[i];
+  if(q){if(ch==='"'){if(text[i+1]==='"'){cell+='"';i++}else q=false}else cell+=ch}
+  else if(ch==='"'&&cell==="")q=true;
+  else if(ch===sep){row.push(cell);cell=""}
+  else if(ch==="\n"||ch==="\r"){if(ch==="\r"&&text[i+1]==="\n")i++;row.push(cell);rows.push(row);row=[];cell=""}
+  else cell+=ch}
+ if(cell!==""||row.length){row.push(cell);rows.push(row)}
+ return rows;
+}
+async function readXlsx(buf){
+ const v=new DataView(buf),u8=new Uint8Array(buf),dec=new TextDecoder();
+ let eocd=-1;for(let i=buf.byteLength-22;i>=Math.max(0,buf.byteLength-65557);i--)if(v.getUint32(i,true)===0x06054b50){eocd=i;break}
+ if(eocd<0)throw new Error("Файл не похож на Excel (.xlsx). Сохраните его как .xlsx или CSV.");
+ const files={};let p=v.getUint32(eocd+16,true);
+ for(let n=v.getUint16(eocd+10,true);n>0&&v.getUint32(p,true)===0x02014b50;n--){
+  const nlen=v.getUint16(p+28,true);
+  files[dec.decode(u8.subarray(p+46,p+46+nlen))]={method:v.getUint16(p+10,true),size:v.getUint32(p+20,true),off:v.getUint32(p+42,true)};
+  p+=46+nlen+v.getUint16(p+30,true)+v.getUint16(p+32,true);
+ }
+ const read=async name=>{
+  const f=files[name];if(!f)return null;
+  const start=f.off+30+v.getUint16(f.off+26,true)+v.getUint16(f.off+28,true),data=u8.subarray(start,start+f.size);
+  if(f.method===0)return dec.decode(data);
+  if(f.method!==8||typeof DecompressionStream!=="function")throw new Error("Этот браузер не читает .xlsx. Сохраните файл как CSV.");
+  return new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).text();
+ };
+ const xml=s=>new DOMParser().parseFromString(s,"application/xml");
+ const strings=[],ss=await read("xl/sharedStrings.xml");
+ if(ss)for(const si of xml(ss).getElementsByTagName("si"))strings.push([...si.getElementsByTagName("t")].filter(t=>t.parentNode.nodeName!=="rPh").map(t=>t.textContent).join(""));
+ let sheet="xl/worksheets/sheet1.xml";
+ const wb=await read("xl/workbook.xml"),rels=await read("xl/_rels/workbook.xml.rels");
+ if(wb&&rels){
+  const s=xml(wb).getElementsByTagName("sheet")[0],rid=s&&s.getAttribute("r:id");
+  const rel=[...xml(rels).getElementsByTagName("Relationship")].find(r=>r.getAttribute("Id")===rid);
+  if(rel){const t=rel.getAttribute("Target");sheet=t.startsWith("/")?t.slice(1):"xl/"+t}
+ }
+ const text=await read(sheet);if(!text)throw new Error("В файле Excel нет листа с данными.");
+ const rows=[];
+ for(const r of xml(text).getElementsByTagName("row")){
+  const row=[];
+  for(const c of r.getElementsByTagName("c")){
+   const letters=((c.getAttribute("r")||"").match(/^[A-Z]+/)||[""])[0];let col=0;for(const ch of letters)col=col*26+ch.charCodeAt(0)-64;
+   const t=c.getAttribute("t"),val=c.getElementsByTagName("v")[0]?.textContent??"";
+   row[col?col-1:row.length]=t==="s"?(strings[Number(val)]??""):t==="inlineStr"?[...c.getElementsByTagName("t")].map(x=>x.textContent).join(""):val;
+  }
+  rows.push(Array.from(row,x=>x??""));
+ }
+ return rows;
+}
+function buildImport(rows){
+ rows=rows.map(r=>r.map(c=>String(c??"").trim())).filter(r=>r.some(Boolean));
+ if(!rows.length)return[];
+ const head=rows[0].map(normHead),cols={};
+ head.forEach((h,i)=>{for(const [k,re] of Object.entries(IMPORT_HEADERS))if(!(k in cols)&&re.test(h))cols[k]=i});
+ let data=rows;
+ if("name" in cols)data=rows.slice(1);else IMPORT_DEFAULT_ORDER.forEach((k,i)=>cols[k]=i);
+ const byName=new Map();products.forEach(p=>[p.name,p.nameRu].forEach(n=>{if(n)byName.set(normName(n),p)}));
+ const seen=new Set();
+ return data.map((r,i)=>{
+  const get=k=>k in cols?(r[cols[k]]??""):"";
+  const row={line:i+1,name:get("name"),nameRu:get("nameRu"),desc:get("desc"),descRu:get("descRu"),image:get("image"),errors:[]};
+  row.price=importNumber(get("price"));row.oldPrice=importNumber(get("oldPrice"));
+  row.category=importCategory(get("category"));
+  row.availability=importAvailability(get("availability"))??importAvailability(get("qty"));
+  const key=normName(row.name);row.existing=key?byName.get(key)||null:null;
+  if(!row.name)row.errors.push("нет названия");
+  if(row.name.length>200||row.nameRu.length>200)row.errors.push("название длиннее 200");
+  if(Number.isNaN(row.price)||row.price<0)row.errors.push("неверная цена");
+  if(Number.isNaN(row.oldPrice))row.errors.push("неверная старая цена");
+  const price=row.price??row.existing?.price??0;
+  if(row.oldPrice!=null&&!Number.isNaN(row.oldPrice)&&!(row.oldPrice>price&&price>0))row.errors.push("старая цена должна быть больше цены");
+  if(row.image&&!/^https:\/\//i.test(row.image))row.errors.push("фото — только ссылка https://");
+  if(row.desc.length>20000||row.descRu.length>20000)row.errors.push("описание длиннее 20 000");
+  if(key&&seen.has(key))row.errors.push("повтор в файле");
+  if(key)seen.add(key);
+  return row;
+ });
+}
+function renderImport(){
+ const ok=importRows.filter(r=>!r.errors.length),add=ok.filter(r=>!r.existing).length,upd=ok.length-add,bad=importRows.length-ok.length;
+ $("importPreview").innerHTML=importRows.length?`<p class="small"><b>＋ Новых: ${add}</b> · ↻ обновится: ${upd} · ⚠ с ошибкой: ${bad}${bad?" (не сохранятся)":""}<br>Нав: ${add} · навсозӣ: ${upd} · хато: ${bad}</p><div style="overflow:auto;max-height:420px"><table style="border-collapse:collapse;width:100%;font-size:14px"><tr style="text-align:left"><th>№</th><th>Название</th><th>Цена</th><th>Категория</th><th>Наличие</th><th></th></tr>${importRows.slice(0,500).map(r=>`<tr style="border-top:1px solid #e3e8ee;${r.errors.length?"background:#fff0f0":""}"><td>${r.line}</td><td>${esc(r.name)}</td><td>${r.price==null?"—":esc(r.price)}</td><td>${esc(r.category?IMPORT_LABEL[r.category]:"—")}</td><td>${esc(r.availability?({in_stock:"есть",out_of_stock:"нет",on_order:"под заказ",unknown:"уточнить"})[r.availability]:"—")}</td><td>${r.errors.length?"⚠ "+esc(r.errors.join(", ")):r.existing?"↻":"＋"}</td></tr>`).join("")}</table></div>`:"";
+ $("importSave").style.display=ok.length?"block":"none";
+ $("importSave").textContent=`Сохранить: новых ${add}, обновить ${upd} / Сабт кардан`;
+}
+async function loadImport(){
+ $("importStatus").style.display="none";
+ try{
+  const file=$("importFile").files[0];let rows;
+  if(file&&/\.(xls|ods|numbers)$/i.test(file.name))throw new Error("Этот формат не поддерживается. В Excel: Файл → Сохранить как → Книга Excel (.xlsx) или CSV.");
+  if(file&&/\.xlsx$/i.test(file.name))rows=await readXlsx(await file.arrayBuffer());
+  else if(file)rows=parseDelimited(await file.text());
+  else rows=parseDelimited($("importText").value);
+  importRows=buildImport(rows);renderImport();
+  if(!importRows.length)msg("importStatus","Нет строк с товарами. Первая строка — заголовки: Название, Цена, Категория, Наличие.");
+  else if(!products.length)msg("importStatus","Список товаров ещё загружается: существующие товары могут быть приняты за новые. Подождите и нажмите «Проверить» снова.");
+ }catch(e){console.error(e);importRows=[];renderImport();msg("importStatus","Ошибка: "+e.message)}
+}
+$("importFile").onchange=loadImport;$("importCheck").onclick=loadImport;
+$("importSave").onclick=async()=>{
+ if(!auth.currentUser){msg("importStatus","Сначала войдите в аккаунт администратора.");return}
+ const todo=importRows.filter(r=>!r.errors.length);if(!todo.length)return;
+ $("importSave").disabled=true;let added=0,updated=0;const failed=[];
+ for(const r of todo){
+  try{
+   if(r.existing){
+    const data={updatedAt:serverTimestamp()};
+    if(r.price!=null)data.price=r.price;
+    if(r.oldPrice!=null)data.oldPrice=r.oldPrice;
+    if(r.category)data.category=r.category;
+    if(r.availability)data.availability=r.availability;
+    for(const k of ["nameRu","desc","descRu","image"])if(r[k])data[k]=r[k];
+    await updateDoc(doc(db,"products",r.existing.id),data);updated++;
+   }else{
+    const data={name:r.name,price:r.price??0,oldPrice:r.oldPrice??null,category:r.category||"other",desc:r.desc,image:r.image,availability:r.availability||"unknown",updatedAt:serverTimestamp(),createdAt:serverTimestamp()};
+    if(r.nameRu)data.nameRu=r.nameRu;
+    if(r.descRu)data.descRu=r.descRu;
+    await setDoc(doc(collection(db,"products")),data);added++;
+   }
+  }catch(e){console.error(e);failed.push(r.name+": "+e.message)}
+  $("importSave").textContent=`Сохраняем… ${added+updated+failed.length} из ${todo.length}`;
+ }
+ $("importSave").disabled=false;
+ msg("importStatus",`✓ Добавлено: ${added}, обновлено: ${updated}. / Илова шуд: ${added}, нав шуд: ${updated}.`+(failed.length?`\nНе сохранено: ${failed.length}\n`+failed.slice(0,10).join("\n"):""),!failed.length);
+ importRows=[];renderImport();$("importFile").value="";$("importText").value="";
+};
+$("importTemplate").onclick=()=>{
+ // The current catalog as a CSV for Excel (";" and a BOM, so Excel opens Cyrillic correctly): edit prices, add rows, load it back.
+ const q=v=>{const s=String(v??"");return /[";\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s};
+ const head=["Название","Цена","Категория","Наличие","Старая цена","Описание","Название RU","Описание RU","Фото"];
+ const stock={in_stock:"есть",out_of_stock:"нет",on_order:"под заказ"};
+ const rows=products.length?products.map(p=>[p.name,p.price??"",IMPORT_LABEL[p.category]||p.category||"",stock[p.availability]||"",p.oldPrice??"",p.desc||"",p.nameRu||"",p.descRu||"",/^https:/i.test(p.image||"")?p.image:""]):[["Стабилизатор 10 кВт",1200,"Стабилизаторы","есть","","","","",""]];
+ const csv="﻿"+[head,...rows].map(r=>r.map(q).join(";")).join("\r\n");
+ const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));a.download="evrostar-katalog.csv";
+ document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);
 };
 </script>
 </body>
