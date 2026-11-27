@@ -43,6 +43,7 @@ export const onSnapshot=(q,ok)=>{setTimeout(()=>ok({docs:docs(q.name)}),20);retu
 export const getDoc=async(r)=>{const d=(F.data&&F.data[r.name]||[]).find(x=>x.id===r.id);return{exists:()=>!!d,data:()=>d}};
 export const setDoc=async(r,v)=>{F.writes.push({col:r.name,id:r.id,v})};
 export const updateDoc=async()=>{};export const deleteDoc=async(r)=>{F.deletes=(F.deletes||[]).concat(r.name+'/'+r.id)};export const addDoc=async()=>{};export const getDocs=async(q)=>({docs:docs(q.name).filter(d=>(q.w||[]).every(w=>d.data()[w.field]===w.val))});
+export const increment=n=>({__increment:n});
 """
 
 failures = []
@@ -51,8 +52,8 @@ def check(cond, label):
     if not cond:
         failures.append(label)
 
-async def new_page(browser, ua=None, fake=None, init='', reg=False):
-    ctx = await browser.new_context(viewport={'width': 390, 'height': 844}, user_agent=ua or None)
+async def new_page(browser, ua=None, fake=None, init='', reg=False, **ctx_args):
+    ctx = await browser.new_context(viewport={'width': 390, 'height': 844}, user_agent=ua or None, **ctx_args)
     page = await ctx.new_page()
     errors = []
     page.on('pageerror', lambda e: errors.append(str(e)))
@@ -406,6 +407,36 @@ async def test_share_links(browser):
     check(page.url.endswith('/?product=zz9'), 'missing share page opens the product in the shop')
     await page.context.close()
 
+async def test_visit_stats(browser):
+    fake = '{data:{products:[{id:"p1",name:"Панели офтобӣ 630W",price:950,availability:"in_stock",category:"solar"}]}}'
+    # Service workers off: after a reload the page's fake Firebase must still be used.
+    page, errors = await new_page(browser, APP_UA, fake, service_workers='block')
+    await page.goto(BASE + '/index.html')
+    await skip_intro(page)
+    await page.wait_for_timeout(500)
+    stats = lambda: page.evaluate('(window.__FAKE.writes||[]).filter(w=>w.col==="stats").map(w=>Object.keys(w.v)[0])')
+    s = await stats()
+    check(s.count('visits') == 1 and s.count('app') == 1, 'visit from the app counted once')
+    await page.evaluate("location.hash='#catalog'")
+    for _ in range(2):
+        await page.click('#products button.details.productName[data-id="p1"]')
+        await page.wait_for_timeout(200)
+        await page.evaluate("document.getElementById('detail').close()")
+    check((await stats()).count('views') == 1, 'product view counted once per visit')
+    await page.evaluate("document.querySelector('a[href*=\"wa.me/992405555530\"]').click()")
+    await page.wait_for_timeout(300)
+    check((await stats()).count('wa') == 1, 'tap on the shop WhatsApp counted')
+    day = await page.evaluate('window.__FAKE.writes.find(w=>w.col==="stats").id') or ''
+    check(len(day) == 10 and day[4] == '-' and day[7] == '-', 'counters are kept per day')
+    await page.reload()
+    await skip_intro(page)
+    await page.wait_for_selector('#products button.details.productName[data-id="p1"]', state='attached')  # database loaded
+    await page.wait_for_timeout(300)
+    check(await page.evaluate('Array.isArray(window.__FAKE.writes)') and (await stats()).count('visits') == 0,
+          'second visit the same day is not counted again')
+    check(not errors, 'no page errors with visit counters: ' + '; '.join(errors[:3]))
+    await page.context.close()
+
 async def main():
     handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=ROOT)
     class Quiet(http.server.SimpleHTTPRequestHandler):
@@ -415,7 +446,7 @@ async def main():
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     async with async_playwright() as p:
         browser = await p.chromium.launch()
-        for t in (test_app_registration, test_captcha_required, test_account_page, test_returning_customer, test_privacy_page, test_app_without_registration, test_website_has_no_gate, test_admin, test_empty_categories_and_stock_warning, test_admin_import, test_share_links):
+        for t in (test_app_registration, test_captcha_required, test_account_page, test_returning_customer, test_privacy_page, test_app_without_registration, test_website_has_no_gate, test_admin, test_empty_categories_and_stock_warning, test_admin_import, test_share_links, test_visit_stats):
             try:
                 await t(browser)
             except Exception as e:

@@ -206,6 +206,13 @@ class Store:
                 return int(x['result']['aggregateFields']['n']['integerValue'])
         return 0
 
+    def doc(self, path):
+        r = self.s.get(f'{DOCS}/{path}', timeout=30)
+        if r.status_code == 404:
+            return {}
+        self._ok(r, 'read ' + path.split('/')[0])
+        return {k: dec(v) for k, v in (r.json().get('fields') or {}).items()}
+
     def state(self):
         r = self.s.get(f'{DOCS}/{STATE}', timeout=30)
         if r.status_code == 404:
@@ -357,8 +364,17 @@ def evrostar_block(db):
     orders = [doc_data(d) for d in db.query('orders', f_ts('createdAt', 'GREATER_THAN_OR_EQUAL', utc_iso(start)), limit=300)]
     total = sum(num(o.get('total')) for o in orders)
     reviews = len(db.query('reviews', f_ts('createdAt', 'GREATER_THAN_OR_EQUAL', utc_iso(start)), limit=300))
+    # Anonymous counters written by the shop (index.html, countStat): one document per day, Tajikistan time.
+    try:
+        st = db.doc(f'stats/{start:%Y-%m-%d}')
+    except Exception as e:  # the counters are extra: never lose the orders part because of them
+        note('warning', f'stats: {e}')
+        st = {}
+    visits, app = int(num(st.get('visits'))), int(num(st.get('app')))
     lines = ['🛒 <b>Барномаи EVROSTAR</b>',
              f'• Фармоишҳои имрӯза: {len(orders)}' + (f' (ҷамъ {money(total)})' if total > 0 else ''),
+             f'• Меҳмонон: {visits}' + (f' (аз барнома {app})' if app else '')
+             + f' · дидани мол: {int(num(st.get("views")))} · WhatsApp: {int(num(st.get("wa")))}',
              f'• Нав, ҳанӯз кор нашуда: {db.count("orders", f_eq("status", "new"))}',
              f'• Дар кор (иҷро нашуда): {db.count("orders", f_in("status", OPEN_STATUSES))}',
              f'• Отзывҳо: имрӯз {reviews}, интизори санҷиш {db.count("reviews", f_eq("status", "pending"))}',
