@@ -417,6 +417,7 @@ async def test_visit_stats(browser):
     stats = lambda: page.evaluate('(window.__FAKE.writes||[]).filter(w=>w.col==="stats").map(w=>Object.keys(w.v)[0])')
     s = await stats()
     check(s.count('visits') == 1 and s.count('app') == 1, 'visit from the app counted once')
+    check(s.count('appNew') == 1, 'first open of the installed app counted (new install)')
     await page.evaluate("location.hash='#catalog'")
     for _ in range(2):
         await page.click('#products button.details.productName[data-id="p1"]')
@@ -434,6 +435,7 @@ async def test_visit_stats(browser):
     await page.wait_for_timeout(300)
     check(await page.evaluate('Array.isArray(window.__FAKE.writes)') and (await stats()).count('visits') == 0,
           'second visit the same day is not counted again')
+    check((await stats()).count('appNew') == 0, 'the same phone is not counted as a new install again')
     check(not errors, 'no page errors with visit counters: ' + '; '.join(errors[:3]))
     await page.context.close()
 
@@ -513,6 +515,45 @@ async def test_telegram_mini_app(browser):
           'Telegram on iPhone: no app offer, home card opens the catalog')
     await page.context.close()
 
+IOS_SAFARI = ('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) '
+              'Version/17.0 Mobile/15E148 Safari/604.1')
+
+async def test_iphone(browser):
+    fake = '{data:{products:[{id:"p1",name:"Панели офтобӣ 630W",price:950,availability:"in_stock",category:"solar"}]}}'
+    # Safari on iPhone: «Насб кардан» explains how to put the EVROSTAR icon on the home screen.
+    page, errors = await new_page(browser, IOS_SAFARI, fake, service_workers='block')
+    await page.goto(BASE + '/index.html')
+    await skip_intro(page)
+    await page.wait_for_timeout(500)
+    check(await page.locator('link[rel="apple-touch-icon"][href="/apple-touch-icon.png"]').count() == 1
+          and await page.locator('meta[name="apple-mobile-web-app-capable"]').count() == 1, 'iPhone home-screen icon and app mode')
+    await page.click('#g3GetApp')
+    await page.wait_for_selector('#installHelp[open]')
+    help_text = await page.inner_text('#installInstructions')
+    check('Safari' in help_text and 'Домой' in help_text and page.url.endswith('/index.html'), 'iPhone: install button shows the home-screen steps')
+    stats = await page.evaluate('(window.__FAKE.writes||[]).filter(w=>w.col==="stats").map(w=>Object.keys(w.v)[0])')
+    check(stats.count('install') == 1, 'tap on install is counted')
+    check(not errors, 'no page errors on iPhone: ' + '; '.join(errors[:3]))
+    await page.context.close()
+    # Telegram on iPhone (Bot API 8.0+): the strip offers «add to home screen» through Telegram.
+    sdk = TG_SDK.replace("BackButton:", "isVersionAtLeast(v){return true},addToHomeScreen(){__TG.calls.push('homescreen')},"
+                                         "checkHomeScreenStatus(f){f('missed')},onEvent(){},BackButton:")
+    page, errors = await new_page(browser, IOS_SAFARI, fake, service_workers='block')
+    await page.route('https://telegram.org/js/telegram-web-app.js',
+                     lambda r: r.fulfill(status=200, content_type='application/javascript', body=sdk))
+    await page.goto(BASE + '/index.html?tg=1#tgWebAppPlatform=ios&tgWebAppVersion=8.0')
+    await skip_intro(page)
+    await page.wait_for_timeout(600)
+    btn = page.locator('.installStrip [data-home-screen]')
+    check(await page.locator('.installStrip').is_visible() and (await btn.inner_text()).strip() == 'Ба экрани асосӣ илова кардан',
+          'Telegram on iPhone: offer to add EVROSTAR to the home screen')
+    await btn.click()
+    await page.wait_for_timeout(200)
+    check('homescreen' in await page.evaluate('window.__TG.calls') and not await page.locator('#installHelp[open]').count(),
+          'Telegram adds the icon (no Safari steps inside Telegram)')
+    check(not errors, 'no page errors in Telegram on iPhone: ' + '; '.join(errors[:3]))
+    await page.context.close()
+
 async def main():
     handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=ROOT)
     class Quiet(http.server.SimpleHTTPRequestHandler):
@@ -522,7 +563,7 @@ async def main():
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     async with async_playwright() as p:
         browser = await p.chromium.launch()
-        for t in (test_app_registration, test_captcha_required, test_account_page, test_returning_customer, test_privacy_page, test_app_without_registration, test_website_has_no_gate, test_admin, test_empty_categories_and_stock_warning, test_admin_import, test_share_links, test_visit_stats, test_telegram_mini_app):
+        for t in (test_app_registration, test_captcha_required, test_account_page, test_returning_customer, test_privacy_page, test_app_without_registration, test_website_has_no_gate, test_admin, test_empty_categories_and_stock_warning, test_admin_import, test_share_links, test_visit_stats, test_telegram_mini_app, test_iphone):
             try:
                 await t(browser)
             except Exception as e:

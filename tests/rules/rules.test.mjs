@@ -107,10 +107,12 @@ test('visit counters: anyone adds exactly 1, only admin reads', async () => {
   await assertFails(setDoc(doc(guest(), day), { name: 'x' }, { merge: true }));
   await assertFails(setDoc(doc(guest(), 'stats/2026-11-28'), { visits: 7 }));
   await assertFails(setDoc(doc(guest(), 'stats/hello'), { visits: 1 }));
+  await assertSucceeds(setDoc(doc(guest(), day), { install: increment(1), appNew: increment(1) }, { merge: true }));
+  await assertFails(setDoc(doc(guest(), day), { install: increment(3) }, { merge: true }));
   await assertFails(getDoc(doc(guest(), day)));
   await assertFails(deleteDoc(doc(guest(), day)));
   const snap = await assertSucceeds(getDoc(doc(admin(), day)));
-  if (snap.data().visits !== 2 || snap.data().app !== 1 || snap.data().wa !== 1) throw new Error('counters: ' + JSON.stringify(snap.data()));
+  if (snap.data().visits !== 2 || snap.data().app !== 1 || snap.data().wa !== 1 || snap.data().install !== 1 || snap.data().appNew !== 1) throw new Error('counters: ' + JSON.stringify(snap.data()));
 });
 
 test('unknown collections are closed', async () => {
