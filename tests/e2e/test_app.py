@@ -461,7 +461,12 @@ async def test_telegram_mini_app(browser):
           and params.get('tgWebAppData', '').startswith('query_id=AAA'), 'Telegram launch data kept for its script, address cleared')
     calls = await page.evaluate('window.__TG.calls')
     check('ready' in calls and 'expand' in calls and 'header:#06110d' in calls, 'mini app is opened full height in shop colours')
-    check(await page.get_attribute('#g3GetApp', 'href') == '#catalog', 'home card offers the catalog, not «install», in Telegram')
+    check('EVROSTAR.apk' in (await page.get_attribute('#g3GetApp', 'href') or ''), 'Telegram on Android: home card button downloads the app')
+    await page.evaluate("document.getElementById('g3GetApp').click()")
+    await page.evaluate("document.querySelector('.installStrip [data-install]').click()")
+    await page.wait_for_timeout(300)
+    apk = [c for c in await page.evaluate('window.__TG.calls') if c.startswith('link:') and c.endswith('EVROSTAR.apk')]
+    check(len(apk) == 2 and await page.locator('.installStrip').is_visible(), 'app download opens outside Telegram (home card and install strip)')
     check(await page.evaluate("(()=>{const l=[...document.querySelectorAll('.tgBotLink')];return l.length>0&&l.every(e=>getComputedStyle(e).display==='none')})()"),
           'link to the bot is hidden inside the bot')
     await page.evaluate("location.hash='#catalog'")
@@ -495,6 +500,17 @@ async def test_telegram_mini_app(browser):
     await page.wait_for_timeout(600)
     check(not asked and await page.evaluate('window.evroInTelegram === false'), 'website outside Telegram does not load Telegram code')
     check(await page.locator('a[href="https://t.me/evrostar_tj_bot"]').count() >= 2, 'website links to the Telegram bot (shop card in Profile and contacts)')
+    await page.context.close()
+    # Telegram on iPhone: nothing to install, the home card opens the catalog.
+    ios = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148'
+    page, errors = await new_page(browser, ios, fake, service_workers='block')
+    await page.route('https://telegram.org/js/telegram-web-app.js',
+                     lambda r: r.fulfill(status=200, content_type='application/javascript', body=TG_SDK))
+    await page.goto(BASE + '/index.html?tg=1#tgWebAppPlatform=ios&tgWebAppVersion=8.0')
+    await skip_intro(page)
+    await page.wait_for_timeout(500)
+    check(await page.get_attribute('#g3GetApp', 'href') == '#catalog' and not await page.locator('.installStrip').is_visible(),
+          'Telegram on iPhone: no app offer, home card opens the catalog')
     await page.context.close()
 
 async def main():
