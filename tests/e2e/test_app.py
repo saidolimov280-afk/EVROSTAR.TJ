@@ -313,6 +313,68 @@ async def test_empty_categories_and_stock_warning(browser):
     check(not errors, 'no page errors in admin product list: ' + '; '.join(errors[:3]))
     await page.context.close()
 
+def make_xlsx(rows):
+    """A minimal real .xlsx (zip + XML, deflate) with shared strings, like Excel writes."""
+    import io, zipfile
+    from xml.sax.saxutils import escape
+    strings = []
+    def cell(ref, v):
+        if isinstance(v, (int, float)):
+            return f'<c r="{ref}"><v>{v}</v></c>'
+        strings.append(v)
+        return f'<c r="{ref}" t="s"><v>{len(strings) - 1}</v></c>'
+    sheet_rows = ''.join(f'<row r="{i + 1}">' + ''.join(cell(chr(65 + j) + str(i + 1), v) for j, v in enumerate(r)) + '</row>'
+                         for i, r in enumerate(rows))
+    ns = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
+    rel = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+    files = {
+        '[Content_Types].xml': '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"/>',
+        'xl/workbook.xml': f'<?xml version="1.0"?><workbook xmlns="{ns}" xmlns:r="{rel}"><sheets><sheet name="Товары" sheetId="1" r:id="rId1"/></sheets></workbook>',
+        'xl/_rels/workbook.xml.rels': '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                                      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>',
+        'xl/worksheets/sheet1.xml': f'<?xml version="1.0"?><worksheet xmlns="{ns}"><sheetData>{sheet_rows}</sheetData></worksheet>',
+        'xl/sharedStrings.xml': f'<?xml version="1.0"?><sst xmlns="{ns}">' + ''.join(f'<si><t>{escape(s)}</t></si>' for s in strings) + '</sst>',
+    }
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as z:
+        for name, text in files.items():
+            z.writestr(name, text)
+    return buf.getvalue()
+
+async def test_admin_import(browser):
+    fake = '{data:{products:[{id:"p1",name:"Панели офтобӣ 630W",price:950,availability:"in_stock",category:"solar"}]}}'
+    page, errors = await new_page(browser, None, fake)
+    await page.goto(BASE + '/admin.html')
+    await page.fill('#email', 'admin@example.com')
+    await page.fill('#password', 'x')
+    await page.click('#loginBtn')
+    await page.wait_for_selector('#importBox:visible')
+    await page.wait_for_timeout(200)
+    # Rows pasted from Excel (tab-separated): one new, one existing (price/stock update), one broken.
+    await page.fill('#importText', 'Название\tЦена\tКатегория\tНаличие\n'
+                                   'Стабилизатор 10 кВт\t1 200\tСтабилизаторы\tесть\n'
+                                   'панели офтобӣ 630W\t990\t\tнет\n'
+                                   '\tабв\t\t\n')
+    await page.click('#importCheck')
+    txt = await page.inner_text('#importPreview')
+    check('Новых: 1' in txt and 'обновится: 1' in txt and 'с ошибкой: 1' in txt, 'import preview: 1 new, 1 update, 1 error')
+    await page.click('#importSave')
+    await page.wait_for_timeout(300)
+    new = await page.evaluate('window.__FAKE.writes.filter(w=>w.col==="products").map(w=>w.v)')
+    check(len(new) == 1 and new[0]['name'] == 'Стабилизатор 10 кВт' and new[0]['price'] == 1200
+          and new[0]['category'] == 'stabilizer' and new[0]['availability'] == 'in_stock', 'import saves the new product with parsed fields')
+    check('Добавлено: 1, обновлено: 1' in await page.inner_text('#importStatus'), 'import reports added and updated')
+    # A real .xlsx file.
+    data = make_xlsx([['Название', 'Цена', 'Категория', 'Количество'],
+                      ['Камера AOV 4G', 550, 'Камеры', 3], ['Телевизор 43"', 2500, 'ТВ / Электроника', 0]])
+    await page.set_input_files('#importFile', files=[{'name': 'tovary.xlsx', 'mimeType': 'application/octet-stream', 'buffer': data}])
+    await page.wait_for_timeout(500)
+    txt = await page.inner_text('#importPreview')
+    check('Новых: 2' in txt and 'Камера AOV 4G' in txt and 'TV / Электроника\tнет' in txt and 'Камеры\tесть' in txt,
+          'import reads .xlsx (categories and stock from quantity)')
+    check(not errors, 'no page errors in admin import: ' + '; '.join(errors[:3]))
+    await page.context.close()
+
 async def main():
     handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=ROOT)
     class Quiet(http.server.SimpleHTTPRequestHandler):
@@ -322,7 +384,7 @@ async def main():
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     async with async_playwright() as p:
         browser = await p.chromium.launch()
-        for t in (test_app_registration, test_captcha_required, test_account_page, test_returning_customer, test_privacy_page, test_app_without_registration, test_website_has_no_gate, test_admin, test_empty_categories_and_stock_warning):
+        for t in (test_app_registration, test_captcha_required, test_account_page, test_returning_customer, test_privacy_page, test_app_without_registration, test_website_has_no_gate, test_admin, test_empty_categories_and_stock_warning, test_admin_import):
             try:
                 await t(browser)
             except Exception as e:
