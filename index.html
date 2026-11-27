@@ -298,7 +298,7 @@ html body #evroCodeChip{background:var(--g-card);border-color:var(--g-accent);co
 .g3Tile b{display:block;font-size:17px;font-weight:700;line-height:1.2}
 .g3Tile small{display:block;margin-top:4px;font-size:13px;font-weight:600;color:var(--g-muted)}.g3Tile small.ok{color:var(--g-ok)}
 .g3Head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin:26px 0 14px}.g3Head h2{margin:0;font-size:22px;color:var(--g-text)}.g3Head a{color:var(--g-accent);font-size:14px;font-weight:600;text-decoration:none}
-.g3Cats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:8px}
+.g3Cats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:8px} .catEmpty{display:none!important}
 html body .g3Cat{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:10px;min-height:56px;padding:8px 14px;border-radius:18px;background:var(--g-card);border:1px solid var(--g-line);color:var(--g-text);font:600 15px/1.2 var(--g-font);text-align:left;text-decoration:none;cursor:pointer;box-shadow:none}
 html body .g3Cat:active{background:var(--g-light);border-color:var(--g-light);color:var(--g-ink)}
 .g3Dot{width:10px;height:10px;border-radius:50%;background:var(--g-accent);flex-shrink:0}
@@ -556,7 +556,11 @@ $('kitBuilder').onsubmit=e=>{
 window.addEventListener('evrolanguagechange',()=>{renderCompare();renderKits()});
 renderCompare();renderKits();
 
+// Categories with no products yet (e.g. stabilizers) are hidden, so a customer never taps into an empty list.
+// They come back by themselves as soon as the first product of that category is added in admin.
+function syncEmptyCategories(){if(!catalogReady)return;const has=c=>ps.some(p=>c==='solar'?p.category==='solar':productGroup(p)===c);document.querySelectorAll('.categoryChip[data-category],.g3Cat[data-category]').forEach(el=>{const c=el.dataset.category;el.classList.toggle('catEmpty',c!=='all'&&!has(c))});const sel=$('cat');if(sel&&sel.value!=='all'&&!has(sel.value))sel.value='all'}
 function draw(){
+syncEmptyCategories();
 let q=$('search').value.trim().toLowerCase(),c=$('cat').value,l=ps.filter(p=>(!onlyDiscounts||discountInfo(p))&&(!onlyFavorites||favs.includes(p.id))&&(c==='all'||(c==='solar'?p.category==='solar':productGroup(p)===c))&&((p.name+' '+(p.desc||'')).toLowerCase().includes(q)));
 delete $('products').dataset.loadState;$('discountFilter').setAttribute('aria-pressed',String(onlyDiscounts));
 $('catalogCount').textContent=l.length+' '+t('productsCount');

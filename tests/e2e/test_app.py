@@ -284,6 +284,35 @@ async def test_admin(browser):
           'phone-registered customer cannot open admin')
     await page.context.close()
 
+async def test_empty_categories_and_stock_warning(browser):
+    # Shop: a category without products is hidden, so customers never open an empty list.
+    fake = ('{data:{products:[{id:"p1",name:"Панели офтобӣ 630W",price:950,availability:"in_stock",category:"solar"},'
+            '{id:"p2",name:"Аккумулятор 12V",price:300,category:"battery"}]}}')
+    page, errors = await new_page(browser, None, fake)
+    await page.goto(BASE + '/index.html')
+    await skip_intro(page)
+    await page.wait_for_timeout(400)
+    hidden = lambda sel: page.locator(sel + '.catEmpty').count()
+    check(await hidden('.categoryChip[data-category="stabilizer"]') == 1 and await hidden('.g3Cat[data-category="stabilizer"]') == 1,
+          'empty category (stabilizers) is hidden')
+    check(await hidden('.categoryChip[data-category="battery"]') == 0 and await hidden('.categoryChip[data-category="panels"]') == 0,
+          'categories with products stay visible')
+    check(await hidden('.categoryChip[data-category="all"]') == 0, '"all" chip is never hidden')
+    check(not errors, 'no page errors with hidden categories: ' + '; '.join(errors[:3]))
+    await page.context.close()
+    # Admin: products without a stock status are flagged.
+    page, errors = await new_page(browser, None, fake)
+    await page.goto(BASE + '/admin.html')
+    await page.fill('#email', 'admin@example.com')
+    await page.fill('#password', 'x')
+    await page.click('#loginBtn')
+    await page.wait_for_selector('#listBox:visible')
+    await page.wait_for_timeout(200)
+    txt = await page.inner_text('#productList')
+    check('Наличие не указано у 1' in txt, 'admin flags products without stock status')
+    check(not errors, 'no page errors in admin product list: ' + '; '.join(errors[:3]))
+    await page.context.close()
+
 async def main():
     handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=ROOT)
     class Quiet(http.server.SimpleHTTPRequestHandler):
@@ -293,7 +322,7 @@ async def main():
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     async with async_playwright() as p:
         browser = await p.chromium.launch()
-        for t in (test_app_registration, test_captcha_required, test_account_page, test_returning_customer, test_privacy_page, test_app_without_registration, test_website_has_no_gate, test_admin):
+        for t in (test_app_registration, test_captcha_required, test_account_page, test_returning_customer, test_privacy_page, test_app_without_registration, test_website_has_no_gate, test_admin, test_empty_categories_and_stock_warning):
             try:
                 await t(browser)
             except Exception as e:
