@@ -21,6 +21,10 @@ jobs:
           python -m playwright install --with-deps chromium
       - name: Run end-to-end tests
         run: python tests/e2e/test_app.py
+      - name: Run share page tests
+        run: |
+          pip install pillow
+          python tests/share/test_build_share.py
   rules:
     name: Firestore security rules
     runs-on: ubuntu-latest

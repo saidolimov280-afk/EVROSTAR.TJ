@@ -16,17 +16,27 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Product share pages and photos (WhatsApp, Telegram, Google)
+        # A problem here must not stop the product list for Google or the keepalive below.
+        continue-on-error: true
+        run: |
+          pip install --quiet pillow
+          python scripts/build_share.py
       - name: Build product list from Firestore
         run: node scripts/build-seo.mjs
       - name: Commit if changed
         run: |
-          if git diff --quiet; then echo "No changes"; exit 0; fi
+          if [ -z "$(git status --porcelain -- index.html sitemap.xml p)" ]; then echo "No changes"; exit 0; fi
           git config user.name "evrostar-bot"
           git config user.email "evrostar-bot@users.noreply.github.com"
-          git add index.html sitemap.xml
-          git commit -m "Update product list for search engines"
+          git add -A -- index.html sitemap.xml p
+          git commit -m "Update product list, share pages and photos"
           git push
       - name: Keep scheduled jobs switched on
+        if: always()
         # GitHub switches off scheduled workflows in public repositories after 60 days without commits.
         # The Telegram bot and this job must keep running, so after 45 quiet days make an empty commit.
         run: |
