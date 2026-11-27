@@ -437,6 +437,63 @@ async def test_visit_stats(browser):
     check(not errors, 'no page errors with visit counters: ' + '; '.join(errors[:3]))
     await page.context.close()
 
+TG_SDK = ("window.__TG={calls:[],back:false};window.Telegram={WebApp:{"
+          "ready(){__TG.calls.push('ready')},expand(){__TG.calls.push('expand')},disableVerticalSwipes(){},"
+          "setHeaderColor(c){__TG.calls.push('header:'+c)},setBackgroundColor(){},setBottomBarColor(){},"
+          "openLink(u){__TG.calls.push('link:'+u)},openTelegramLink(u){__TG.calls.push('tglink:'+u)},"
+          "BackButton:{show(){__TG.back=true},hide(){__TG.back=false},onClick(f){__TG.onBack=f}}}};")
+TG_UA = 'Mozilla/5.0 (Linux; Android 13; Pixel 7; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/120.0 Mobile Safari/537.36'
+
+async def test_telegram_mini_app(browser):
+    fake = '{data:{products:[{id:"p1",name:"Панели офтобӣ 630W",price:950,availability:"in_stock",category:"solar"}]}}'
+    cart = "try{localStorage.setItem('evrostar_cart',JSON.stringify([{id:'p1',name:'Панели офтобӣ 630W',price:950,qty:1}]))}catch(e){}"
+    page, errors = await new_page(browser, TG_UA, fake, cart, service_workers='block')
+    await page.route('https://telegram.org/js/telegram-web-app.js',
+                     lambda r: r.fulfill(status=200, content_type='application/javascript', body=TG_SDK))
+    navigations = []
+    page.on('request', lambda r: navigations.append(r.url) if 'wa.me' in r.url else None)
+    await page.goto(BASE + '/index.html?tg=1#tgWebAppData=query_id%3DAAA%26auth_date%3D1&tgWebAppVersion=8.0'
+                    '&tgWebAppPlatform=android&tgWebAppThemeParams=%7B%22bg_color%22%3A%22%23000000%22%7D')
+    await skip_intro(page)
+    await page.wait_for_timeout(600)
+    params = await page.evaluate("JSON.parse(sessionStorage.getItem('__telegram__initParams')||'{}')")
+    check('tgWebApp' not in page.url and params.get('tgWebAppPlatform') == 'android'
+          and params.get('tgWebAppData', '').startswith('query_id=AAA'), 'Telegram launch data kept for its script, address cleared')
+    calls = await page.evaluate('window.__TG.calls')
+    check('ready' in calls and 'expand' in calls and 'header:#06110d' in calls, 'mini app is opened full height in shop colours')
+    check(await page.get_attribute('#g3GetApp', 'href') == '#catalog', 'home card offers the catalog, not «install», in Telegram')
+    await page.evaluate("location.hash='#catalog'")
+    await page.wait_for_timeout(200)
+    on_catalog = await page.evaluate('window.__TG.back')
+    await page.evaluate('window.__TG.onBack()')
+    await page.wait_for_timeout(300)
+    check(on_catalog and not await page.evaluate('window.__TG.back'), "Telegram's back button goes back to the home page")
+    await page.evaluate("document.querySelector('a[href*=\"wa.me/992405555530\"]').click()")
+    await page.wait_for_timeout(300)
+    calls = await page.evaluate('window.__TG.calls')
+    check(any(c.startswith('link:https://wa.me/992405555530') for c in calls) and not navigations,
+          'WhatsApp link opens outside Telegram')
+    await page.evaluate("location.hash='#cart'")
+    await page.wait_for_selector('#customerAddress:visible')
+    await page.fill('#customerName', 'Алӣ')
+    await page.fill('#customerPhone', '+992 900 000 001')
+    await page.fill('#customerAddress', 'Ҳисор, кӯчаи 1')
+    await page.evaluate("document.getElementById('order').click()")
+    await page.wait_for_timeout(1500)
+    calls = await page.evaluate('window.__TG.calls')
+    order = [urllib.parse.unquote(c) for c in calls if c.startswith('link:https://wa.me/992405555530?text=')]
+    check(bool(order) and 'Алӣ' in order[-1] and not navigations, 'order from Telegram opens WhatsApp with the order text')
+    check(not errors, 'no page errors in Telegram: ' + '; '.join(errors[:3]))
+    await page.context.close()
+    # A normal browser is not affected: no Telegram script, links work as before.
+    page, errors = await new_page(browser, None, fake)
+    asked = []
+    page.on('request', lambda r: asked.append(r.url) if 'telegram.org' in r.url else None)
+    await page.goto(BASE + '/index.html')
+    await page.wait_for_timeout(600)
+    check(not asked and await page.evaluate('window.evroInTelegram === false'), 'website outside Telegram does not load Telegram code')
+    await page.context.close()
+
 async def main():
     handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=ROOT)
     class Quiet(http.server.SimpleHTTPRequestHandler):
@@ -446,7 +503,7 @@ async def main():
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     async with async_playwright() as p:
         browser = await p.chromium.launch()
-        for t in (test_app_registration, test_captcha_required, test_account_page, test_returning_customer, test_privacy_page, test_app_without_registration, test_website_has_no_gate, test_admin, test_empty_categories_and_stock_warning, test_admin_import, test_share_links, test_visit_stats):
+        for t in (test_app_registration, test_captcha_required, test_account_page, test_returning_customer, test_privacy_page, test_app_without_registration, test_website_has_no_gate, test_admin, test_empty_categories_and_stock_warning, test_admin_import, test_share_links, test_visit_stats, test_telegram_mini_app):
             try:
                 await t(browser)
             except Exception as e:
