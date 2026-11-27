@@ -71,6 +71,19 @@ jobs:
             --title "EVROSTAR ${tag}" \
             --notes "EVROSTAR.aab — барои Google Play Console. EVROSTAR.apk — барои насби мустақим (имзошуда). versionCode ${VERSION_CODE}."
           echo "::notice title=Release::https://github.com/${GITHUB_REPOSITORY}/releases/tag/${tag}"
+      - name: Update the APK on the website
+        # Links shared earlier (evrostarshop.com/downloads/EVROSTAR.apk, evrostarshop.com/EVROSTAR.apk)
+        # must always give the newest signed APK, the same file as the GitHub Release.
+        if: steps.key.outputs.signed == 'true' && github.ref == 'refs/heads/main'
+        run: |
+          cp out/EVROSTAR.apk downloads/EVROSTAR.apk
+          cp out/EVROSTAR.apk EVROSTAR.apk
+          if git diff --quiet -- downloads/EVROSTAR.apk EVROSTAR.apk; then echo "Website APK already up to date"; exit 0; fi
+          git config user.name "evrostar-bot"
+          git config user.email "evrostar-bot@users.noreply.github.com"
+          git add downloads/EVROSTAR.apk EVROSTAR.apk
+          git commit -m "Website APK: signed build from release v1.2.0-${VERSION_CODE}"
+          git push || { git pull --rebase --autostash origin main && git push; }
       - name: Keep unsigned build for checking
         if: steps.key.outputs.signed != 'true'
         uses: actions/upload-artifact@v4
