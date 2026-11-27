@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
 <meta name="theme-color" content="#071b2c">
 <title>EVROSTAR — Admin</title>
 <style>
@@ -153,7 +154,8 @@ async function uploadPhoto(file,progressId="progress"){
 // Small catalog copy of a photo; the full photo is kept in productImages/{id}.
 const THUMB_SIDE=400, THUMB_LIMIT=60000;
 async function makeThumb(src){
- const im=new Image();im.src=src;await im.decode();
+ // Photos given as https links are loaded with CORS, otherwise the canvas cannot be read back.
+ const im=new Image();if(/^https?:/i.test(src))im.crossOrigin="anonymous";im.src=src;await im.decode();
  const scale=Math.min(1,THUMB_SIDE/Math.max(im.naturalWidth,im.naturalHeight));
  const canvas=document.createElement("canvas");
  canvas.width=Math.max(1,Math.round(im.naturalWidth*scale));canvas.height=Math.max(1,Math.round(im.naturalHeight*scale));
@@ -161,7 +163,8 @@ async function makeThumb(src){
  const webp=canvas.toDataURL("image/webp",0.7);
  return webp.startsWith("data:image/webp")?webp:canvas.toDataURL("image/jpeg",0.7);
 }
-function needsThumb(image){return /^data:image\//i.test(image||"")&&image.length>THUMB_LIMIT}
+// Big photos stored in the product, and photos given as an https link (e.g. the 630W panel), get a small catalog copy.
+function needsThumb(image){return (/^data:image\//i.test(image||"")&&image.length>THUMB_LIMIT)||/^https:\/\//i.test(image||"")}
 function validOldPrice(raw,price){if(String(raw).trim()==='')return null;const n=Number(raw);if(!Number.isFinite(n)||n<=price||price<=0)throw new Error('Прежняя цена должна быть больше текущей, а текущая цена — больше нуля.');return n}
 function updateDiscountPreview(){try{const old=validOldPrice($("oldPrice").value,Number($("price").value));$("discountPreview").textContent=old===null?'Оставьте пустым, если скидки нет.':'Скидка −'+((old-Number($("price").value))/old*100).toLocaleString('ru-RU',{maximumFractionDigits:1})+'% • Экономия '+(old-Number($("price").value)).toLocaleString('ru-RU',{maximumFractionDigits:2})+' сомони';}catch(e){$("discountPreview").textContent=e.message}}
 $("price").addEventListener('input',updateDiscountPreview);$("oldPrice").addEventListener('input',updateDiscountPreview);
@@ -169,7 +172,9 @@ function availabilityValue(value){return ['in_stock','out_of_stock','on_order'].
 function availabilityText(value){return {in_stock:'В наличии / Дар анбор ҳаст',out_of_stock:'Нет в наличии / Тамом шуд',on_order:'Под заказ / Бо фармоиш',unknown:'Наличие уточняется / Мавҷудиятро пурсед'}[availabilityValue(value)]}
 function renderList(){
  const term=$("listSearch").value.toLowerCase();
- $("productList").innerHTML=products.filter(p=>String(p.name).toLowerCase().includes(term)).map(p=>`<div style="padding:14px 0;border-bottom:1px solid #ddd"><b>${esc(p.name)}</b> — ${Number(p.price)>0?Number(p.price).toLocaleString("ru-RU")+" сомони":"Цена по запросу"}<div class="small">${esc(availabilityText(p.availability))}</div><button data-edit="${esc(p.id)}">Изменить товар</button></div>`).join("")||"Товаров пока нет.";
+ $("productList").innerHTML=products.filter(p=>String(p.name).toLowerCase().includes(term)).map(p=>`<div style="padding:14px 0;border-bottom:1px solid #ddd"><b>${esc(p.name)}</b> — ${Number(p.price)>0?Number(p.price).toLocaleString("ru-RU")+" сомони":"Цена по запросу"}<div class="small"${availabilityValue(p.availability)==='unknown'?' style="color:#b45309;font-weight:700"':''}>${availabilityValue(p.availability)==='unknown'?'⚠ ':''}${esc(availabilityText(p.availability))}</div><button data-edit="${esc(p.id)}">Изменить товар</button></div>`).join("")||"Товаров пока нет.";
+ const unknownCount=products.filter(p=>availabilityValue(p.availability)==='unknown').length;
+ if(unknownCount&&!term)$("productList").insertAdjacentHTML("afterbegin",`<p class="small" style="color:#b45309;font-weight:700">⚠ Наличие не указано у ${unknownCount} тов. (отмечены ниже). Если товар есть — «Изменить товар» → «В наличии». / Мавҷудият нишон дода нашудааст: ${unknownCount}</p>`);
  document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{
   const p=products.find(p=>p.id===b.dataset.edit);if(!p)return;
   resetForm();editId=p.id;existingImage=p.image||"";$("formTitle").textContent="Изменить товар";
@@ -361,17 +366,19 @@ $("optimizeBtn").onclick=async()=>{
  if(!products.length){msg("optimizeStatus","Список товаров ещё не загружен. Подождите и попробуйте снова.");return}
  const todo=products.filter(p=>needsThumb(p.image));
  if(!todo.length){msg("optimizeStatus","✓ Все фото уже оптимизированы.",true);return}
- $("optimizeBtn").disabled=true;let done=0,before=0,after=0;
+ $("optimizeBtn").disabled=true;let done=0,before=0,after=0;const skipped=[];
  try{
   for(const p of todo){
-   const thumb=await makeThumb(p.image);
+   let thumb;
+   // A link whose site does not allow reading the photo is skipped; the product keeps its link.
+   try{thumb=await makeThumb(p.image)}catch(e){if(/^https:/i.test(p.image)){console.error(e);skipped.push(p.name);continue}throw e}
    // Save the full photo first, so it is never lost if the second write fails.
    await setDoc(doc(db,"productImages",p.id),{image:p.image,updatedAt:serverTimestamp()});
    await updateDoc(doc(db,"products",p.id),{image:thumb});
-   before+=p.image.length;after+=thumb.length;done++;
+   if(p.image.startsWith("data:")){before+=p.image.length;after+=thumb.length}done++;
    $("optimizeBtn").textContent="Готово: "+done+" из "+todo.length+"…";
   }
-  msg("optimizeStatus","✓ Оптимизировано фото: "+done+". Каталог: "+Math.round(before/1024)+" КБ → "+Math.round(after/1024)+" КБ.",true);
+  msg("optimizeStatus","✓ Оптимизировано фото: "+done+". Каталог: "+Math.round(before/1024)+" КБ → "+Math.round(after/1024)+" КБ."+(skipped.length?"\nНе удалось прочитать фото по ссылке: "+skipped.join(", "):""),true);
  }catch(e){console.error(e);msg("optimizeStatus","Ошибка после "+done+" фото: "+e.message+(String(e.code||"").includes("permission")?"\nДобавьте в правила Firestore доступ к коллекции productImages.":""))}
  finally{$("optimizeBtn").disabled=false;$("optimizeBtn").textContent="Оптимизировать фото"}
 };

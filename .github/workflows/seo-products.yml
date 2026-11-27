@@ -26,3 +26,13 @@ jobs:
           git add index.html sitemap.xml
           git commit -m "Update product list for search engines"
           git push
+      - name: Keep scheduled jobs switched on
+        # GitHub switches off scheduled workflows in public repositories after 60 days without commits.
+        # The Telegram bot and this job must keep running, so after 45 quiet days make an empty commit.
+        run: |
+          days=$(( ($(date +%s) - $(git log -1 --format=%ct)) / 86400 ))
+          if [ "$days" -lt 45 ]; then echo "Last commit $days days ago — nothing to do"; exit 0; fi
+          git config user.name "evrostar-bot"
+          git config user.email "evrostar-bot@users.noreply.github.com"
+          git commit --allow-empty -m "Keepalive: scheduled jobs stay on (no commits for $days days)"
+          git push
