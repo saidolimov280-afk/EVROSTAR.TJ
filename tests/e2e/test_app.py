@@ -462,6 +462,8 @@ async def test_telegram_mini_app(browser):
     calls = await page.evaluate('window.__TG.calls')
     check('ready' in calls and 'expand' in calls and 'header:#06110d' in calls, 'mini app is opened full height in shop colours')
     check(await page.get_attribute('#g3GetApp', 'href') == '#catalog', 'home card offers the catalog, not «install», in Telegram')
+    check(await page.evaluate("(()=>{const l=[...document.querySelectorAll('.tgBotLink')];return l.length>0&&l.every(e=>getComputedStyle(e).display==='none')})()"),
+          'link to the bot is hidden inside the bot')
     await page.evaluate("location.hash='#catalog'")
     await page.wait_for_timeout(200)
     on_catalog = await page.evaluate('window.__TG.back')
@@ -492,6 +494,7 @@ async def test_telegram_mini_app(browser):
     await page.goto(BASE + '/index.html')
     await page.wait_for_timeout(600)
     check(not asked and await page.evaluate('window.evroInTelegram === false'), 'website outside Telegram does not load Telegram code')
+    check(await page.locator('a[href="https://t.me/evrostar_tj_bot"]').count() >= 2, 'website links to the Telegram bot (shop card in Profile and contacts)')
     await page.context.close()
 
 async def main():
