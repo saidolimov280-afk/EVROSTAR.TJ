@@ -56,6 +56,7 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          GH_TOKEN: ${{ github.token }}  # reads the app's download count from GitHub Releases
         run: |
           pip install -q --disable-pip-version-check google-auth requests
           python scripts/telegram_bot.py

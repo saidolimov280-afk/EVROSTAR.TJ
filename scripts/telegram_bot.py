@@ -359,6 +359,21 @@ WATCHED = (('orders', 'ordersSince', fmt_order, 'фармоиш', '🛒 <b>Фа�
            ('stockAlerts', 'alertsSince', fmt_alert, 'дархост', '🔔 <b>Дархости нав: мунтазири мол</b>'))
 
 
+def github_apk_downloads():
+    """All-time downloads of EVROSTAR.apk from GitHub Releases (the site's download buttons); None if unknown."""
+    repo = os.environ.get('GITHUB_REPOSITORY') or 'saidolimov280-afk/EVROSTAR.TJ'
+    headers = {'Accept': 'application/vnd.github+json'}
+    if os.environ.get('GH_TOKEN'):
+        headers['Authorization'] = 'Bearer ' + os.environ['GH_TOKEN']
+    try:
+        r = requests.get(f'https://api.github.com/repos/{repo}/releases?per_page=100', headers=headers, timeout=20)
+        if r.status_code != 200:
+            return None
+        return sum(a.get('download_count', 0) for rel in r.json() for a in rel.get('assets', []) if str(a.get('name', '')).endswith('.apk'))
+    except (requests.RequestException, ValueError):
+        return None
+
+
 def evrostar_block(db):
     start = today_local().replace(hour=0, minute=0, second=0, microsecond=0)
     orders = [doc_data(d) for d in db.query('orders', f_ts('createdAt', 'GREATER_THAN_OR_EQUAL', utc_iso(start)), limit=300)]
@@ -371,10 +386,13 @@ def evrostar_block(db):
         note('warning', f'stats: {e}')
         st = {}
     visits, app = int(num(st.get('visits'))), int(num(st.get('app')))
+    apk_total = github_apk_downloads()
     lines = ['🛒 <b>Барномаи EVROSTAR</b>',
              f'• Фармоишҳои имрӯза: {len(orders)}' + (f' (ҷамъ {money(total)})' if total > 0 else ''),
              f'• Меҳмонон: {visits}' + (f' (аз барнома {app})' if app else '')
              + f' · дидани мол: {int(num(st.get("views")))} · WhatsApp: {int(num(st.get("wa")))}',
+             f'• Барнома: пахши «зеркашӣ/насб» имрӯз {int(num(st.get("install")))} · насби нав {int(num(st.get("appNew")))}'
+             + (f' · ҳамагӣ зеркашӣ (APK): {apk_total}' if apk_total is not None else ''),
              f'• Нав, ҳанӯз кор нашуда: {db.count("orders", f_eq("status", "new"))}',
              f'• Дар кор (иҷро нашуда): {db.count("orders", f_in("status", OPEN_STATUSES))}',
              f'• Отзывҳо: имрӯз {reviews}, интизори санҷиш {db.count("reviews", f_eq("status", "pending"))}',
