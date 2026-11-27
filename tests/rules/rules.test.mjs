@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { test, before, after, beforeEach } from 'node:test';
 import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, query, where, increment } from 'firebase/firestore';
 
 const rules = readFileSync(new URL('../../firestore.rules', import.meta.url), 'utf8').replace(/request\.auth\.uid in \[[^\]]*\]/, "request.auth.uid in ['admin1']");
 let env;
@@ -95,6 +95,22 @@ test('personal account: customer sees only own orders', async () => {
 test('customer can delete own profile only', async () => {
   await assertFails(deleteDoc(doc(customer('c2', '+992900000002'), 'customers/c1')));
   await assertSucceeds(deleteDoc(doc(customer(), 'customers/c1')));
+});
+
+test('visit counters: anyone adds exactly 1, only admin reads', async () => {
+  const day = 'stats/2026-11-27';
+  await assertSucceeds(setDoc(doc(guest(), day), { visits: increment(1) }, { merge: true }));
+  await assertSucceeds(setDoc(doc(guest(), day), { visits: increment(1), app: increment(1) }, { merge: true }));
+  await assertSucceeds(setDoc(doc(customer(), day), { wa: increment(1) }, { merge: true }));
+  await assertFails(setDoc(doc(guest(), day), { visits: increment(5) }, { merge: true }));
+  await assertFails(setDoc(doc(guest(), day), { visits: 1000 }, { merge: true }));
+  await assertFails(setDoc(doc(guest(), day), { name: 'x' }, { merge: true }));
+  await assertFails(setDoc(doc(guest(), 'stats/2026-11-28'), { visits: 7 }));
+  await assertFails(setDoc(doc(guest(), 'stats/hello'), { visits: 1 }));
+  await assertFails(getDoc(doc(guest(), day)));
+  await assertFails(deleteDoc(doc(guest(), day)));
+  const snap = await assertSucceeds(getDoc(doc(admin(), day)));
+  if (snap.data().visits !== 2 || snap.data().app !== 1 || snap.data().wa !== 1) throw new Error('counters: ' + JSON.stringify(snap.data()));
 });
 
 test('unknown collections are closed', async () => {

@@ -17,6 +17,9 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid in ['jYPTfoRyy3N76rdP3ttKaHVzVEZ2'];
     }
     function smallText(v, max) { return v is string && v.size() <= max; }
+    // Visit counters: a new day starts at 1, after that each counter may only go up by exactly 1.
+    function firstCount(d, k) { return !(k in d) || d[k] == 1; }
+    function nextCount(n, o, k) { return !(k in n) || n[k] == (k in o ? o[k] : 0) + 1 || (k in o && n[k] == o[k]); }
 
     // Catalog and works: public to read, admin to change.
     match /products/{id}       { allow read: if true; allow write: if isAdmin(); }
@@ -52,6 +55,18 @@ service cloud.firestore {
     match /stockAlerts/{id} {
       allow create: if request.resource.data.status == 'waiting';
       allow read, update, delete: if isAdmin();
+    }
+
+    // Anonymous visit counters per day (no personal data): the shop adds 1, the owner sees them in the Telegram report.
+    match /stats/{day} {
+      allow read, delete: if isAdmin();
+      allow create: if day.matches('20[0-9]{2}-[01][0-9]-[0-3][0-9]')
+        && request.resource.data.keys().hasOnly(['visits', 'app', 'views', 'wa'])
+        && firstCount(request.resource.data, 'visits') && firstCount(request.resource.data, 'app')
+        && firstCount(request.resource.data, 'views') && firstCount(request.resource.data, 'wa');
+      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['visits', 'app', 'views', 'wa'])
+        && nextCount(request.resource.data, resource.data, 'visits') && nextCount(request.resource.data, resource.data, 'app')
+        && nextCount(request.resource.data, resource.data, 'views') && nextCount(request.resource.data, resource.data, 'wa');
     }
 
     // Customers registered by SMS: each sees only their own profile; admin sees all.
