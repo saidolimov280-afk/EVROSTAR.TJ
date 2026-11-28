@@ -554,6 +554,37 @@ async def test_iphone(browser):
     check(not errors, 'no page errors in Telegram on iPhone: ' + '; '.join(errors[:3]))
     await page.context.close()
 
+async def test_admin_duplicates(browser):
+    # The whole catalogue was imported a second time: the admin deletes the copies in one tap, keeping the one with a photo.
+    fake = ('{data:{products:['
+            '{id:"orig",name:"Панели офтобӣ 630W",price:950,image:"https://evrostarshop.com/p/orig.jpg",createdAt:1000},'
+            '{id:"copy",name:"Панели офтобӣ 630W",price:950,image:"",createdAt:5000},'
+            '{id:"old",name:"Камера AOV",price:550,createdAt:2000},'
+            '{id:"old2",name:"камера  AOV",price:550,createdAt:9000},'
+            '{id:"cam",name:"Камераи офтобии AOV бо 5 линза",price:800,image:"https://evrostarshop.com/assets/products/aov-5-lens-solar.jpg"}]}}')
+    page, errors = await new_page(browser, None, fake)
+    page.on('dialog', lambda d: asyncio.ensure_future(d.accept()))
+    await page.goto(BASE + '/admin.html')
+    await page.fill('#email', 'admin@example.com')
+    await page.fill('#password', 'x')
+    await page.click('#loginBtn')
+    await page.wait_for_selector('#dupFix', timeout=5000)
+    check('(2)' in await page.inner_text('#dupFix'), 'admin warns about 2 products added twice')
+    await page.click('#dupFix')
+    await page.wait_for_timeout(400)
+    deletes = await page.evaluate('window.__FAKE.deletes||[]')
+    check('products/copy' in deletes and 'products/old2' in deletes, 'the copies are deleted (no photo / newer)')
+    check(not any(d in deletes for d in ('products/orig', 'products/old', 'products/cam')), 'originals and the new camera stay')
+    # Import never adds a name that already exists, even with different letter case.
+    await page.fill('#importText', 'Название\tЦена\nпанели офтобӣ 630W\t990\n')
+    await page.click('#importCheck')
+    await page.click('#importSave')
+    await page.wait_for_timeout(300)
+    added = await page.evaluate('window.__FAKE.writes.filter(w=>w.col==="products").length')
+    check(added == 0 and 'обновлено: 1' in await page.inner_text('#importStatus'), 'import updates an existing name instead of adding it again')
+    check(not errors, 'no page errors in admin duplicates: ' + '; '.join(errors[:3]))
+    await page.context.close()
+
 async def test_market_home(browser):
     # Light home screen like a big online shop: search first, category icons, all menu labels shown.
     fake = '{data:{products:[{id:"p1",name:"Панели офтобӣ 630W",price:950,availability:"in_stock",category:"panels"}]}}'
@@ -598,7 +629,7 @@ async def main():
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     async with async_playwright() as p:
         browser = await p.chromium.launch()
-        for t in (test_app_registration, test_captcha_required, test_account_page, test_returning_customer, test_privacy_page, test_app_without_registration, test_website_has_no_gate, test_admin, test_empty_categories_and_stock_warning, test_admin_import, test_share_links, test_visit_stats, test_telegram_mini_app, test_iphone, test_market_home):
+        for t in (test_app_registration, test_captcha_required, test_account_page, test_returning_customer, test_privacy_page, test_app_without_registration, test_website_has_no_gate, test_admin, test_empty_categories_and_stock_warning, test_admin_import, test_share_links, test_visit_stats, test_telegram_mini_app, test_iphone, test_market_home, test_admin_duplicates):
             try:
                 await t(browser)
             except Exception as e:
