@@ -1,0 +1,47 @@
+name: Add product from catalog/new
+# Manual only. Adds (or updates, if the name exists) the product described in a JSON file in catalog/new/.
+on:
+  workflow_dispatch:
+    inputs:
+      file:
+        description: 'JSON file, e.g. catalog/new/aov-2-lens-4k.json'
+        required: true
+      apply:
+        description: 'Save to the shop? (yes / no)'
+        required: true
+        default: 'no'
+permissions:
+  contents: read
+concurrency:
+  group: add-product
+  cancel-in-progress: false
+jobs:
+  add:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            scripts
+            catalog
+      - name: Service account key
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$SA" ]; then echo "::error::Secret FIREBASE_SERVICE_ACCOUNT is not set."; exit 1; fi
+          printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Add product
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+          FILE: ${{ github.event.inputs.file }}
+          APPLY: ${{ github.event.inputs.apply }}
+        run: |
+          pip install -q --disable-pip-version-check google-auth requests
+          python scripts/add_product.py
+      - name: Remove key file
+        if: always()
+        run: rm -f "$RUNNER_TEMP/sa.json"
