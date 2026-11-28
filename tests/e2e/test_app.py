@@ -565,6 +565,7 @@ async def test_market_home(browser):
         .map(s => document.querySelector('#home ' + s).getBoundingClientRect().top)""")
     check(order == sorted(order), 'home: search, categories, banners, quick cards, app card — in this order')
     check(await page.locator('#home .homeLatest, #newProducts').count() == 0, 'no «new products» list on the home screen')
+    check(await page.locator('#homeSavedSystem').count() == 0, 'no saved calculation on the home screen')
     check(await page.locator('.g3Cat .g3Ico').count() == 10, 'every category has its own icon')
     labels = await page.evaluate("""() => [...document.querySelectorAll('.bottomNav a > span:not(.navBadge)')]
         .map(s => { const r = s.getBoundingClientRect(); return r.width > 20 && r.height > 8 })""")
