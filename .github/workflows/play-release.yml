@@ -66,7 +66,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tag="v1.2.0-${VERSION_CODE}"
+          VERSION_NAME=$(sed -n "s/^ *versionName '\([^']*\)'.*/\1/p" android/app/build.gradle)
+          tag="v${VERSION_NAME}-${VERSION_CODE}"
           gh release create "$tag" out/EVROSTAR.aab out/EVROSTAR.apk \
             --title "EVROSTAR ${tag}" \
             --notes "EVROSTAR.aab — барои Google Play Console. EVROSTAR.apk — барои насби мустақим (имзошуда). versionCode ${VERSION_CODE}."
@@ -82,7 +83,7 @@ jobs:
           git config user.name "evrostar-bot"
           git config user.email "evrostar-bot@users.noreply.github.com"
           git add downloads/EVROSTAR.apk EVROSTAR.apk
-          git commit -m "Website APK: signed build from release v1.2.0-${VERSION_CODE}"
+          git commit -m "Website APK: signed build from release v$(sed -n "s/^ *versionName '\([^']*\)'.*/\1/p" android/app/build.gradle)-${VERSION_CODE}"
           git push || { git pull --rebase --autostash origin main && git push; }
       - name: Keep unsigned build for checking
         if: steps.key.outputs.signed != 'true'
