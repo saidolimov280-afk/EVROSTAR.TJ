@@ -180,12 +180,37 @@ function updateDiscountPreview(){try{const old=validOldPrice($("oldPrice").value
 $("price").addEventListener('input',updateDiscountPreview);$("oldPrice").addEventListener('input',updateDiscountPreview);
 function availabilityValue(value){return ['in_stock','out_of_stock','on_order'].includes(value)?value:'unknown'}
 function availabilityText(value){return {in_stock:'В наличии / Дар анбор ҳаст',out_of_stock:'Нет в наличии / Тамом шуд',on_order:'Под заказ / Бо фармоиш',unknown:'Наличие уточняется / Мавҷудиятро пурсед'}[availabilityValue(value)]}
+// The same name twice (e.g. the whole catalogue imported again): keep the copy with a photo, else the oldest one.
+function duplicateProducts(){
+ const key=s=>String(s??"").toLowerCase().replace(/\s+/g," ").trim();
+ const ms=t=>t&&typeof t.toMillis==="function"?t.toMillis():typeof t==="number"?t:t&&t.seconds?t.seconds*1000:0;
+ const groups=new Map();
+ products.forEach(p=>{const k=key(p.name);if(!k)return;if(!groups.has(k))groups.set(k,[]);groups.get(k).push(p)});
+ const out=[];
+ for(const list of groups.values()){
+  if(list.length<2)continue;
+  list.sort((x,y)=>(y.image?1:0)-(x.image?1:0)||ms(x.createdAt)-ms(y.createdAt));
+  out.push(...list.slice(1));
+ }
+ return out;
+}
+async function removeDuplicates(dupes){
+ if(!auth.currentUser||!dupes.length)return;
+ if(!confirm(`Удалить повторы: ${dupes.length}? Останется по одному товару с каждым названием.\nДутогиҳо (${dupes.length}) нест карда шаванд?`))return;
+ const btn=$("dupFix");if(btn){btn.disabled=true;btn.textContent="Удаляем…"}
+ let done=0;const failed=[];
+ for(const p of dupes){
+  try{await deleteDoc(doc(db,"products",p.id));deleteDoc(doc(db,"productImages",p.id)).catch(()=>{});done++}
+  catch(e){console.error(e);failed.push(p.name+": "+e.message)}
+ }
+ alert(`✓ Удалено повторов: ${done} / Нест шуд: ${done}`+(failed.length?`\nНе удалось: ${failed.length}\n`+failed.slice(0,5).join("\n"):""));
+}
 function renderList(){
  const term=$("listSearch").value.toLowerCase();
  $("productList").innerHTML=products.filter(p=>String(p.name).toLowerCase().includes(term)).map(p=>`<div style="padding:14px 0;border-bottom:1px solid #ddd"><b>${esc(p.name)}</b> — ${Number(p.price)>0?Number(p.price).toLocaleString("ru-RU")+" сомони":"Цена по запросу"}<div class="small"${availabilityValue(p.availability)==='unknown'?' style="color:#b45309;font-weight:700"':''}>${availabilityValue(p.availability)==='unknown'?'⚠ ':''}${esc(availabilityText(p.availability))}</div><button data-edit="${esc(p.id)}">Изменить товар</button></div>`).join("")||"Товаров пока нет.";
  const unknownCount=products.filter(p=>availabilityValue(p.availability)==='unknown').length;
  if(unknownCount&&!term)$("productList").insertAdjacentHTML("afterbegin",`<p class="small" style="color:#b45309;font-weight:700">⚠ Наличие не указано у ${unknownCount} тов. (отмечены ниже). Если товар есть — «Изменить товар» → «В наличии». / Мавҷудият нишон дода нашудааст: ${unknownCount}</p>`);
- document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{
+ const dupes=duplicateProducts(); if(dupes.length&&!term){$("productList").insertAdjacentHTML("afterbegin",`<div id="dupBox" style="margin:0 0 12px;padding:12px;border-radius:12px;background:#fff4e5;border:1px solid #f5c27a"><b>⚠ Повторы: ${dupes.length} тов. — одно название добавлено дважды. / Молҳои дутогӣ: ${dupes.length}</b><div class="small">Останется по одному товару с каждым названием: с фото, а если фото нет — самый старый. / Аз ҳар ном як мол мемонад: бо акс, агар акс набошад — аз ҳама кӯҳна.</div><button class="btn" id="dupFix" type="button">Удалить повторы (${dupes.length}) / Дутогиҳоро нест кардан</button></div>`);$("dupFix").onclick=()=>removeDuplicates(dupes)} document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{
   const p=products.find(p=>p.id===b.dataset.edit);if(!p)return;
   resetForm();editId=p.id;existingImage=p.image||"";$("formTitle").textContent="Изменить товар";
   ["name","nameRu","price","oldPrice","category","desc","descRu"].forEach(id=>$(id).value=p[id]??"");$("availability").value=availabilityValue(p.availability);updateDiscountPreview();
@@ -323,9 +348,9 @@ onAdminState(user=>{
  if(user)stopCustomers=onSnapshot(query(collection(db,"customers"),orderBy("createdAt","desc"),limit(1000)),snap=>{
   customers=snap.docs.map(d=>({...d.data(),id:d.id}));renderCustomers();
  },e=>{$("customerList").textContent="Не удалось прочитать покупателей: "+e.message+(String(e.code||"").includes("permission")?"\nОпубликуйте правила из файла firestore.rules (с UID администратора).":"")});
- if(stopList){stopList();stopList=null}products=[];resetForm();renderList();
+ if(stopList){stopList();stopList=null}products=[];productsReady=false;resetForm();renderList();
  if(user)stopList=onSnapshot(collection(db,"products"),snap=>{
-  products=snap.docs.map(d=>({...d.data(),id:d.id}));renderList();if(typeof renderAlerts==="function"&&alerts.length)renderAlerts();
+  products=snap.docs.map(d=>({...d.data(),id:d.id}));productsReady=true;renderList();if(typeof renderAlerts==="function"&&alerts.length)renderAlerts();
  },e=>{$("productList").textContent="Не удалось прочитать товары: "+e.message});
 });
 $("saveBtn").onclick=async()=>{
@@ -410,7 +435,7 @@ const IMPORT_HEADERS={
 };
 const IMPORT_DEFAULT_ORDER=["name","price","category","availability","desc"];
 const IMPORT_LABEL={solar:"Солнечные системы",battery:"Аккумуляторы",camera:"Камеры",internet:"Роутеры / Интернет",stabilizer:"Стабилизаторы",tv:"TV / Электроника",other:"Другое"};
-let importRows=[];
+let importRows=[]; let productsReady=false;
 const normHead=s=>String(s??"").toLowerCase().replace(/[*:()]/g," ").replace(/\s+/g," ").trim();
 const normName=s=>String(s??"").toLowerCase().replace(/\s+/g," ").trim();
 function importCategory(v){
@@ -539,6 +564,7 @@ async function loadImport(){
 $("importFile").onchange=loadImport;$("importCheck").onclick=loadImport;
 $("importSave").onclick=async()=>{
  if(!auth.currentUser){msg("importStatus","Сначала войдите в аккаунт администратора.");return}
+  if(!productsReady){msg("importStatus","Подождите: список товаров ещё загружается, потом нажмите «Сохранить» снова. / Интизор шавед: рӯйхати молҳо бор шуда истодааст.");return}  {const byName=new Map();products.forEach(p=>[p.name,p.nameRu].forEach(n=>{if(n)byName.set(normName(n),p)}));importRows.forEach(r=>{const k=normName(r.name);r.existing=k?byName.get(k)||null:null})}
  const todo=importRows.filter(r=>!r.errors.length);if(!todo.length)return;
  $("importSave").disabled=true;let added=0,updated=0;const failed=[];
  for(const r of todo){
