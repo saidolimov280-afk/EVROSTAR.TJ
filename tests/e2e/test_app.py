@@ -561,9 +561,12 @@ async def test_market_home(browser):
     await page.goto(BASE + '/index.html')
     await skip_intro(page)
     await page.wait_for_timeout(400)
-    order = await page.evaluate("""() => ['.homeSearch', '.g3Cats', '.homePromo', '.homeActions', '.g3Card']
+    order = await page.evaluate("""() => ['.homeSearch', '.evroAd', '.g3Cats', '.homePromo', '.homeActions', '.g3Card']
         .map(s => document.querySelector('#home ' + s).getBoundingClientRect().top)""")
-    check(order == sorted(order), 'home: search, categories, banners, quick cards, app card — in this order')
+    check(order == sorted(order), 'home: search, EVROSTAR advert, categories, banners, quick cards, app card — in this order')
+    ad = page.locator('#home .evroAd')
+    check(await ad.locator('a[href="#catalog"]').count() == 1 and await ad.locator('a[href^="https://wa.me/992405555530"]').count() == 1
+          and await ad.locator('.evroAdProd').count() == 3, 'advert: three EVROSTAR products, catalogue and WhatsApp buttons')
     check(await page.locator('#home .homeLatest, #newProducts').count() == 0, 'no «new products» list on the home screen')
     check(await page.locator('#homeSavedSystem').count() == 0, 'no saved calculation on the home screen')
     check(await page.locator('.g3Cat .g3Ico').count() == 10, 'every category has its own icon')
