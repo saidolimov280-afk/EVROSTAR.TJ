@@ -1,0 +1,46 @@
+name: Remove duplicate products
+# Manual only. First run shows the plan (dry run); run again with "apply" = yes to delete the copies.
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: 'Delete the copies? (yes / no)'
+        required: true
+        default: 'no'
+      days:
+        description: 'Only copies created within this many days'
+        required: false
+        default: '3'
+permissions:
+  contents: read
+concurrency:
+  group: remove-duplicates
+  cancel-in-progress: false
+jobs:
+  dedupe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts
+      - name: Service account key
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$SA" ]; then echo "::error::Secret FIREBASE_SERVICE_ACCOUNT is not set."; exit 1; fi
+          printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Remove copies
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+          APPLY: ${{ github.event.inputs.apply }}
+          DAYS: ${{ github.event.inputs.days }}
+        run: |
+          pip install -q --disable-pip-version-check google-auth requests
+          python scripts/remove_duplicates.py
+      - name: Remove key file
+        if: always()
+        run: rm -f "$RUNNER_TEMP/sa.json"
