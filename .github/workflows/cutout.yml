@@ -1,0 +1,40 @@
+name: Cut out camera photos (temporary branch only)
+on:
+  push:
+    branches: [bgsrc]
+    paths: ['tmp-bg/src-*.jpg', '.github/workflows/cutout.yml']
+permissions:
+  contents: write
+jobs:
+  cutout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Remove backgrounds
+        run: |
+          pip install -q --disable-pip-version-check "rembg[cpu]" pillow
+          python - <<'PY'
+          import glob, os
+          from PIL import Image
+          from rembg import new_session, remove
+          for model in ('isnet-general-use', 'u2net', 'birefnet-general-lite'):
+              try:
+                  s = new_session(model)
+              except Exception as e:
+                  print('skip', model, e); continue
+              for f in sorted(glob.glob('tmp-bg/src-*.jpg')):
+                  name = os.path.basename(f)[4:-4]
+                  out = remove(Image.open(f).convert('RGB'), session=s)
+                  out.save(f'tmp-bg/out-{name}-{model}.png')
+                  print('done', name, model, out.size)
+          PY
+      - name: Save results to this branch
+        run: |
+          git config user.name "evrostar-bot"
+          git config user.email "evrostar-bot@users.noreply.github.com"
+          git add tmp-bg/out-*.png
+          git commit -m "tmp: cut-out camera photos" && git push
