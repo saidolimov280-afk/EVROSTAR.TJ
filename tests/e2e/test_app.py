@@ -254,8 +254,8 @@ async def test_website_has_no_gate(browser):
     await skip_intro(page)
     await page.wait_for_timeout(500)
     check(await page.locator('#evroGate').count() == 0, 'public website does not ask to register')
-    bg = await page.evaluate('getComputedStyle(document.body).backgroundImage')
-    check('gradient' in bg, 'new background applied')
+    bg = await page.evaluate('getComputedStyle(document.body).backgroundColor')
+    check(bg == 'rgb(242, 243, 245)', 'light background applied')
     check(not errors, 'no page errors on website: ' + '; '.join(errors[:3]))
     await page.context.close()
 
@@ -554,6 +554,32 @@ async def test_iphone(browser):
     check(not errors, 'no page errors in Telegram on iPhone: ' + '; '.join(errors[:3]))
     await page.context.close()
 
+async def test_market_home(browser):
+    # Light home screen like a big online shop: search first, category icons, all menu labels shown.
+    fake = '{data:{products:[{id:"p1",name:"Панели офтобӣ 630W",price:950,availability:"in_stock",category:"panels"}]}}'
+    page, errors = await new_page(browser, None, fake)
+    await page.goto(BASE + '/index.html')
+    await skip_intro(page)
+    await page.wait_for_timeout(400)
+    order = await page.evaluate("""() => ['.homeSearch', '.g3Cats', '.homePromo', '.homeActions', '#newProducts']
+        .map(s => document.querySelector('#home ' + s).getBoundingClientRect().top)""")
+    check(order == sorted(order), 'home: search, categories, banners, quick cards, products — in this order')
+    check(await page.locator('.g3Cat .g3Ico').count() == 10, 'every category has its own icon')
+    labels = await page.evaluate("""() => [...document.querySelectorAll('.bottomNav a > span:not(.navBadge)')]
+        .map(s => { const r = s.getBoundingClientRect(); return r.width > 20 && r.height > 8 })""")
+    check(len(labels) == 5 and all(labels), 'menu shows the names of all five buttons')
+    check(not await page.locator('#badge').is_visible(), 'empty cart: no number on the cart button')
+    await page.click('#newProducts .add')
+    await page.wait_for_timeout(200)
+    check(await page.locator('#badge').is_visible() and (await page.locator('#badge').inner_text()) == '1', 'cart number appears after adding')
+    await page.click('#homeDiscounts')
+    await page.wait_for_timeout(300)
+    check(await page.evaluate("location.hash") == '#catalog', 'discounts card opens the catalogue')
+    manifest = await page.evaluate("fetch('/manifest.webmanifest').then(r => r.json())")
+    check(any(i.get('purpose') == 'maskable' for i in manifest['icons']) and manifest['theme_color'] == '#ffffff',
+          'app icon for phones (maskable) and light colours in the manifest')
+    check(not errors, 'no page errors on the new home screen: ' + '; '.join(errors))
+
 async def main():
     handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=ROOT)
     class Quiet(http.server.SimpleHTTPRequestHandler):
@@ -563,7 +589,7 @@ async def main():
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     async with async_playwright() as p:
         browser = await p.chromium.launch()
-        for t in (test_app_registration, test_captcha_required, test_account_page, test_returning_customer, test_privacy_page, test_app_without_registration, test_website_has_no_gate, test_admin, test_empty_categories_and_stock_warning, test_admin_import, test_share_links, test_visit_stats, test_telegram_mini_app, test_iphone):
+        for t in (test_app_registration, test_captcha_required, test_account_page, test_returning_customer, test_privacy_page, test_app_without_registration, test_website_has_no_gate, test_admin, test_empty_categories_and_stock_warning, test_admin_import, test_share_links, test_visit_stats, test_telegram_mini_app, test_iphone, test_market_home):
             try:
                 await t(browser)
             except Exception as e:

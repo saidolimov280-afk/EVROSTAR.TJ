@@ -24,7 +24,9 @@ public class MainActivity extends Activity {
  }
  @Override public void onCreate(Bundle state) {
   super.onCreate(state);
-  LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(Color.parseColor("#071b2c"));
+  LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(Color.WHITE);
+  // Android 15+ draws apps under the status and navigation bars: keep the shop below them (light bars, dark icons).
+  root.setOnApplyWindowInsetsListener((v,in)->{v.setPadding(in.getSystemWindowInsetLeft(),in.getSystemWindowInsetTop(),in.getSystemWindowInsetRight(),in.getSystemWindowInsetBottom());return in.consumeSystemWindowInsets();});
   progress=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);progress.setMax(100);
   root.addView(progress,new LinearLayout.LayoutParams(-1,8));
   FrameLayout frame=new FrameLayout(this);root.addView(frame,new LinearLayout.LayoutParams(-1,0,1));

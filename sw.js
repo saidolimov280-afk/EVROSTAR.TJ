@@ -1,6 +1,6 @@
 // EVROSTAR service worker: opens the shop fast and without internet.
 // Pages: network first, cached copy when offline. Images and Firebase code: cached.
-const VERSION='evrostar-v2';
+const VERSION='evrostar-v3';
 const SHELL=['/','/index.html','/manifest.webmanifest','/icon-192.png','/icon-512.png','/favicon.ico','/install.js','/assets/solar-banner.webp','/assets/battery-banner.webp','/assets/camera-aov.webp'];
 const OFFLINE='<!doctype html><html lang="tg"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>EVROSTAR</title><body style="font-family:Arial;padding:30px;background:#071b2c;color:white"><h1>EVROSTAR</h1><p>Барои каталог ва фармоиш пайвасти Интернет лозим аст.</p><p>Для каталога и заказов нужно подключение к интернету.</p><button onclick="location.reload()">Аз нав кӯшиш кардан / Попробовать снова</button></body></html>';
 self.addEventListener('install',e=>{self.skipWaiting();e.waitUntil(caches.open(VERSION).then(c=>Promise.all(SHELL.map(u=>c.add(u).catch(()=>{})))))});
